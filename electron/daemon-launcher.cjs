@@ -106,19 +106,18 @@ class DaemonLauncher {
   }
 
   _getTSDaemonDevPath() {
-    // Walk up from electron/ to find the project root
-    const projectRoot = path.resolve(__dirname, '..', '..', '..', '..');
-    const desktopApp = path.join(projectRoot, 'src', 'clients', 'desktop_app');
+    // Project root is one level up from electron/
+    const projectRoot = path.resolve(__dirname, '..');
 
     // Dev mode: prefer tsx (source) so code changes take effect without rebuild
-    const srcEntry = path.join(desktopApp, 'daemon-ts', 'src', 'server.ts');
+    const srcEntry = path.join(projectRoot, 'daemon-ts', 'src', 'server.ts');
     if (fs.existsSync(srcEntry)) {
       console.log(`[DaemonLauncher] Using tsx for TS daemon: ${srcEntry}`);
       return { command: 'npx', args: ['tsx', srcEntry] };
     }
 
     // Fall back to compiled JS
-    const distEntry = path.join(desktopApp, 'daemon-ts', 'dist', 'server.js');
+    const distEntry = path.join(projectRoot, 'daemon-ts', 'dist', 'server.js');
     if (fs.existsSync(distEntry)) {
       console.log(`[DaemonLauncher] Using compiled TS daemon: ${distEntry}`);
       return { command: 'node', args: [distEntry] };

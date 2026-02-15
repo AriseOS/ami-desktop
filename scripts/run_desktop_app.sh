@@ -36,6 +36,13 @@ if [ ! -d "${PROJECT_ROOT}/node_modules" ]; then
     npm install
 fi
 
+# Check if daemon-ts node_modules exists
+if [ ! -d "${PROJECT_ROOT}/daemon-ts/node_modules" ]; then
+    echo "📦 Installing daemon-ts dependencies..."
+    cd "${PROJECT_ROOT}/daemon-ts"
+    npm install
+fi
+
 # Start the app in development mode
 cd "${PROJECT_ROOT}"
 

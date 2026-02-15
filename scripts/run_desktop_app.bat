@@ -46,6 +46,14 @@ IF NOT EXIST "%PROJECT_ROOT%\node_modules" (
     popd
 )
 
+REM Check if daemon-ts node_modules exists
+IF NOT EXIST "%PROJECT_ROOT%\daemon-ts\node_modules" (
+    echo Installing daemon-ts dependencies...
+    pushd "%PROJECT_ROOT%\daemon-ts"
+    call npm install
+    popd
+)
+
 REM Start the app in development mode
 echo Starting Electron app (Development Mode)...
 echo    AMI_DEV_MODE=1 -^> Using TypeScript daemon (tsx)
