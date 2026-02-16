@@ -130,7 +130,7 @@ jobs:
           ls -lh *.dmg
 
       - name: Install boto3 for R2
-        run: pip3 install boto3
+        run: pip3 install --break-system-packages boto3
 
       - name: Upload to Cloudflare R2
         env:
