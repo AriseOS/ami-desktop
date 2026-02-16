@@ -16,11 +16,15 @@ const useBrowserTabStore = create((set, get) => ({
   views: {},
 
   // Currently visible tab
-  activeTabId: '7',
+  activeTabId: '0',
 
   // Recording metadata per view
   // { [viewId]: { sessionId, source, startTime } }
   recordingMeta: {},
+
+  // Preview metadata per view
+  // { [viewId]: { filePath, fileName, fileType } }
+  previewMeta: {},
 
   /**
    * Fetch all view info from Electron and populate views.
@@ -112,19 +116,87 @@ const useBrowserTabStore = create((set, get) => ({
   },
 
   /**
+   * Set preview metadata for a view.
+   */
+  setPreviewMeta: (viewId, meta) => {
+    set((state) => ({
+      previewMeta: {
+        ...state.previewMeta,
+        [viewId]: meta,
+      },
+    }));
+  },
+
+  /**
+   * Clear preview metadata for a view.
+   */
+  clearPreviewMeta: (viewId) => {
+    set((state) => {
+      const { [viewId]: _, ...rest } = state.previewMeta;
+      return { previewMeta: rest };
+    });
+  },
+
+  /**
+   * Open a file preview in a free pool view.
+   * Finds a free view, sets preview mode, switches tab, and navigates to file:// URL.
+   */
+  openPreview: async (filePath, fileName, fileType) => {
+    // Ensure views are loaded (may be empty on first mount)
+    let { views, activeTabId } = get();
+    if (Object.keys(views).length === 0) {
+      await get().fetchAllViews();
+      ({ views, activeTabId } = get());
+    }
+
+    // Find a free pool view (skip view "0" which is the login tab)
+    let freeViewId = null;
+    for (const [id, view] of Object.entries(views)) {
+      if (id === '0') continue;
+      if (!view.url || view.url.startsWith(POOL_MARKER) || view.url.startsWith(CLAIMED_MARKER)) {
+        freeViewId = id;
+        break;
+      }
+    }
+    if (!freeViewId) return null; // Pool full
+
+    // Build file URL — normalize Windows backslash paths to forward slashes
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    const fileUrl = normalizedPath.startsWith('/') ? `file://${normalizedPath}` : `file:///${normalizedPath}`;
+
+    // Hide current tab, set mode + meta + url, switch
+    if (activeTabId && activeTabId !== freeViewId) {
+      window.electronAPI?.hideWebview(activeTabId);
+    }
+    set((state) => ({
+      views: {
+        ...state.views,
+        [freeViewId]: { ...state.views[freeViewId], url: fileUrl, mode: 'preview', title: fileName },
+      },
+      previewMeta: { ...state.previewMeta, [freeViewId]: { filePath, fileName, fileType } },
+      activeTabId: freeViewId,
+    }));
+
+    // Navigate to file
+    await window.electronAPI?.navigateWebviewPreview(freeViewId, fileUrl);
+    return freeViewId;
+  },
+
+  /**
    * Close a tab — navigate view back to pool marker URL, reset mode.
-   * If closing the active tab, switch to view "7".
+   * If closing the active tab, switch to view "0".
    */
   closeTab: (viewId) => {
     // Don't allow closing the login tab
-    if (viewId === '7') return;
+    if (viewId === '0') return;
 
     // Navigate back to pool marker
     window.electronAPI?.navigateWebview(viewId, `${POOL_MARKER}&viewId=${viewId}`);
     window.electronAPI?.hideWebview(viewId);
 
     set((state) => {
-      const newActiveTabId = state.activeTabId === viewId ? '7' : state.activeTabId;
+      const newActiveTabId = state.activeTabId === viewId ? '0' : state.activeTabId;
+      const { [viewId]: _rm, ...restPreview } = state.previewMeta;
       return {
         views: {
           ...state.views,
@@ -134,6 +206,7 @@ const useBrowserTabStore = create((set, get) => ({
             mode: 'idle',
           },
         },
+        previewMeta: restPreview,
         activeTabId: newActiveTabId,
       };
     });
@@ -141,7 +214,7 @@ const useBrowserTabStore = create((set, get) => ({
 
   /**
    * Get active tabs — views with url NOT starting with pool marker,
-   * PLUS viewId "7" always shown. Sorted: login-first, then by id.
+   * PLUS viewId "0" always shown. Sorted: login-first, then by id.
    */
   getActiveTabs: () => {
     const { views } = get();
@@ -150,8 +223,8 @@ const useBrowserTabStore = create((set, get) => ({
     for (const [id, view] of Object.entries(views)) {
       const isPool = !view.url || view.url.startsWith(POOL_MARKER);
       const isClaimed = view.url && view.url.startsWith(CLAIMED_MARKER);
-      // Always show view "7" (login slot) + any non-pool/non-claimed views
-      if (id === '7' || (!isPool && !isClaimed)) {
+      // Always show view "0" (login slot) + any non-pool/non-claimed views
+      if (id === '0' || (!isPool && !isClaimed)) {
         tabs.push({ id, ...view });
       }
     }

@@ -248,6 +248,11 @@ function registerIpcHandlers() {
     return webViewManager.navigate(id, url);
   });
 
+  ipcMain.handle('navigate-webview-preview', async (_event, id, fileUrl) => {
+    if (!webViewManager) return { success: false, error: 'WebViewManager not ready' };
+    return webViewManager.navigatePreview(id, fileUrl);
+  });
+
   ipcMain.handle('webview-go-back', (_event, id) => {
     if (!webViewManager) return { success: false, error: 'WebViewManager not ready' };
     return webViewManager.goBack(id);

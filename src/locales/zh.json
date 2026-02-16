@@ -682,6 +682,22 @@
             "cancelled": "生成已取消"
         }
     },
+    "loginWelcome": {
+        "title": "欢迎使用 Ami 浏览器",
+        "subtitle": "在这里登录你的账号，剩下的交给 Ami",
+        "loginTitle": "这是你的标签页",
+        "loginDesc": "这个标签页属于你。在这里登录任意网站 — Ami 工作时会自动使用你的 Cookie 和登录状态。",
+        "agentTitle": "Ami 会自己创建标签页",
+        "agentDesc": "当 Ami 执行任务时，它会自动打开新标签页来浏览、点击、填写表单、提取数据。你可以实时观看它的操作。",
+        "memoryTitle": "教一次，永远用",
+        "memoryDesc": "录制一次工作流，Ami 就能学会。下次只需描述你的需求 — Ami 会自动重放并灵活调整你的操作步骤。",
+        "hint": "在上方输入网址开始使用"
+    },
+    "filePreview": {
+        "preview": "预览",
+        "closePreview": "关闭预览",
+        "filePreview": "文件预览"
+    },
     "recording": {
         "ops": {
             "click": "点击",

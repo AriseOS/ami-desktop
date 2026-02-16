@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hideAllWebviews: () => ipcRenderer.invoke('hide-all-webviews'),
   getWebviewUrl: (id) => ipcRenderer.invoke('get-webview-url', id),
   navigateWebview: (id, url) => ipcRenderer.invoke('navigate-webview', id, url),
+  navigateWebviewPreview: (id, fileUrl) => ipcRenderer.invoke('navigate-webview-preview', id, fileUrl),
   webviewGoBack: (id) => ipcRenderer.invoke('webview-go-back', id),
   webviewGoForward: (id) => ipcRenderer.invoke('webview-go-forward', id),
   webviewReload: (id) => ipcRenderer.invoke('webview-reload', id),

@@ -177,6 +177,12 @@
   border-bottom-color: var(--color-primary-200);
 }
 
+.browser-mode-bar.preview {
+  background: var(--color-primary-50);
+  border-bottom-color: var(--color-primary-200);
+  justify-content: space-between;
+}
+
 .browser-mode-status {
   display: flex;
   align-items: center;
@@ -262,4 +268,20 @@
   overflow: hidden;
   background: var(--bg-surface);
   border-top: 1px solid var(--border-subtle);
+  position: relative;
+}
+
+/* When welcome is shown, hide the native viewport placeholder
+   and let LoginWelcome fill the remaining space */
+.browser-page-content.show-welcome .embedded-browser {
+  flex: none;
+  height: auto;
+}
+
+.browser-page-content.show-welcome .embedded-browser-viewport {
+  display: none;
+}
+
+.browser-page-content.show-welcome {
+  flex-direction: column;
 }

@@ -377,6 +377,37 @@ class WebViewManager {
   }
 
   /**
+   * Navigate a view to a local file:// URL for preview.
+   * Only allows whitelisted extensions (PDF, HTML, images).
+   */
+  async navigatePreview(id, fileUrl) {
+    const info = this.views.get(id);
+    if (!info) return { success: false, error: `View ${id} not found` };
+
+    try {
+      const parsed = new URL(fileUrl);
+      if (parsed.protocol !== 'file:') {
+        return { success: false, error: 'Preview only supports file:// URLs' };
+      }
+      const filePath = decodeURIComponent(parsed.pathname);
+      const ext = filePath.split('.').pop()?.toLowerCase();
+      const ALLOWED = ['pdf', 'html', 'htm', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'];
+      if (!ALLOWED.includes(ext)) {
+        return { success: false, error: `Extension '${ext}' not allowed for preview` };
+      }
+    } catch {
+      return { success: false, error: `Invalid URL: ${fileUrl}` };
+    }
+
+    try {
+      await info.view.webContents.loadURL(fileUrl);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  /**
    * Destroy all views and clean up.
    */
   destroy() {

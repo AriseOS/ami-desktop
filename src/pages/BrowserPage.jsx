@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { EmbeddedBrowser } from '../components/EmbeddedBrowser';
+import LoginWelcome from '../components/LoginWelcome';
 import Icon from '../components/Icons';
 import { api } from '../utils/api';
 import { useAgentStore, useBrowserTabStore } from '../store';
@@ -33,6 +34,7 @@ const TAB_ICONS = {
   login: 'logIn',
   recording: 'record',
   live: 'robot',
+  preview: 'file',
   idle: 'globe',
 };
 
@@ -43,6 +45,7 @@ const MODE_DOT_COLORS = {
   recording: 'var(--status-error-text)',
   live: 'var(--primary-main)',
   login: 'var(--primary-main)',
+  preview: 'var(--primary-main)',
 };
 
 export default function BrowserPage({
@@ -54,11 +57,16 @@ export default function BrowserPage({
   viewId: initialViewId,
   sessionId: initialSessionId,
   source: initialSource,
+  // Preview params
+  filePath: initialFilePath,
+  fileName: initialFileName,
+  fileType: initialFileType,
 }) {
   // --- Store ---
   const activeTabId = useBrowserTabStore((s) => s.activeTabId);
   const views = useBrowserTabStore((s) => s.views);
   const recordingMeta = useBrowserTabStore((s) => s.recordingMeta);
+  const previewMeta = useBrowserTabStore((s) => s.previewMeta);
   const fetchAllViews = useBrowserTabStore((s) => s.fetchAllViews);
   const onViewStateChanged = useBrowserTabStore((s) => s.onViewStateChanged);
   const setViewMode = useBrowserTabStore((s) => s.setViewMode);
@@ -86,7 +94,7 @@ export default function BrowserPage({
     for (const [id, view] of Object.entries(views)) {
       const isPool = !view.url || view.url.startsWith(POOL_MARKER);
       const isClaimed = view.url && view.url.startsWith(CLAIMED_MARKER);
-      if (id === '7' || (!isPool && !isClaimed)) {
+      if (id === '0' || (!isPool && !isClaimed)) {
         tabs.push({ id, ...view });
       }
     }
@@ -125,7 +133,9 @@ export default function BrowserPage({
     if (initializedRef.current) return;
     initializedRef.current = true;
 
-    if (initialMode && initialViewId) {
+    if (initialMode === 'preview' && initialFilePath) {
+      useBrowserTabStore.getState().openPreview(initialFilePath, initialFileName, initialFileType);
+    } else if (initialMode && initialViewId) {
       setViewMode(initialViewId, initialMode);
       switchTab(initialViewId);
 
@@ -138,11 +148,11 @@ export default function BrowserPage({
         startTimeRef.current = Date.now();
       }
     } else {
-      // No explicit params — ensure view "7" has login mode for tab bar display,
+      // No explicit params — ensure view "0" has login mode for tab bar display,
       // but keep whatever activeTabId the store already has (last selected tab).
       const currentViews = useBrowserTabStore.getState().views;
-      if (!currentViews['7']?.mode || currentViews['7'].mode === 'idle') {
-        setViewMode('7', 'login');
+      if (!currentViews['0']?.mode || currentViews['0'].mode === 'idle') {
+        setViewMode('0', 'login');
       }
     }
   }, []);
@@ -251,8 +261,14 @@ export default function BrowserPage({
     closeTab(tabId);
   };
 
-  // Initial URL for login tab
-  const initialUrl = activeMode === 'login' ? 'https://www.google.com' : '';
+  // Initial URL — no default page; login tab shows welcome overlay instead
+  const initialUrl = '';
+
+  // Show welcome overlay when login tab is active with no real URL loaded
+  const showWelcome = activeMode === 'login' && (
+    !activeView?.url ||
+    activeView.url.startsWith('about:blank')
+  );
 
   // --- Tab bar ---
   const renderTabBar = () => (
@@ -265,8 +281,10 @@ export default function BrowserPage({
           const accentColor = MODE_DOT_COLORS[tab.mode];
           const label = tab.mode === 'login'
             ? 'Login'
+            : tab.mode === 'preview'
+            ? (previewMeta[tab.id]?.fileName || tab.title || 'Preview')
             : tab.title || getDomain(tab.url) || `Tab ${tab.id}`;
-          const canClose = tab.id !== '7' && tab.mode !== 'control';
+          const canClose = tab.id !== '0' && tab.mode !== 'control';
           const showSep = index > 0 && !isActive && !prevActive;
 
           return (
@@ -336,6 +354,24 @@ export default function BrowserPage({
       );
     }
 
+    if (activeMode === 'preview') {
+      const meta = previewMeta[activeTabId];
+      return (
+        <div className="browser-mode-bar preview">
+          <div className="browser-mode-status">
+            <Icon name="file" size={14} />
+            <span className="browser-mode-label">
+              {meta?.fileName || 'File Preview'}
+            </span>
+          </div>
+          <button className="browser-mode-btn" onClick={() => closeTab(activeTabId)}>
+            <Icon name="x" size={12} />
+            Close Preview
+          </button>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -343,14 +379,15 @@ export default function BrowserPage({
     <div className="browser-page">
       {renderTabBar()}
       {renderModeBar()}
-      <div className="browser-page-content">
+      <div className={`browser-page-content${showWelcome ? ' show-welcome' : ''}`}>
         <EmbeddedBrowser
           viewId={activeTabId}
-          visible={true}
+          visible={!showWelcome}
           interactive={true}
-          showControls={true}
+          showControls={activeMode !== 'preview'}
           initialUrl={initialUrl}
         />
+        {showWelcome && <LoginWelcome />}
       </div>
     </div>
   );

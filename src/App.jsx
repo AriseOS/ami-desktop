@@ -901,6 +901,9 @@ function App() {
             viewId={pageParams.viewId}
             sessionId={pageParams.sessionId}
             source={pageParams.source}
+            filePath={pageParams.filePath}
+            fileName={pageParams.fileName}
+            fileType={pageParams.fileType}
           />
         );
 

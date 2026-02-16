@@ -70,7 +70,10 @@ function getLanguageFromExt(filename) {
   return langMap[ext] || 'text';
 }
 
-function FileAttachmentCard({ file }) {
+// File types that can be previewed in the embedded browser (Chromium native rendering)
+const PREVIEWABLE_TYPES = ['pdf', 'html', 'image'];
+
+function FileAttachmentCard({ file, onPreview }) {
   const [expanded, setExpanded] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -88,8 +91,11 @@ function FileAttachmentCard({ file }) {
   // Normalize: old format used "type" key, new format uses "file_type"
   const file_type = rawFileType || file.type || 'other';
 
-  // Determine if this file type has a preview
-  const hasPreview = ['image', 'html', 'csv', 'excel', 'code'].includes(file_type);
+  // Determine if this file type has an inline preview
+  const hasInlinePreview = ['image', 'html', 'csv', 'excel', 'code'].includes(file_type);
+
+  // Determine if this file type can be previewed in the embedded browser
+  const canPreview = PREVIEWABLE_TYPES.includes(file_type);
 
   // Images are always expanded (show thumbnail)
   const isAlwaysExpanded = file_type === 'image';
@@ -229,7 +235,15 @@ function FileAttachmentCard({ file }) {
         </div>
 
         <div className="file-card-actions">
-          {hasPreview && !isAlwaysExpanded && (
+          {canPreview && onPreview ? (
+            <button
+              className="file-action-btn preview-btn"
+              onClick={() => onPreview(file)}
+              title="Preview in browser"
+            >
+              Preview
+            </button>
+          ) : hasInlinePreview && !isAlwaysExpanded && (
             <button
               className="file-action-btn preview-btn"
               onClick={() => setExpanded(!expanded)}

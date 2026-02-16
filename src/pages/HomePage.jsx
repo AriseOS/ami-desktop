@@ -474,6 +474,16 @@ function HomePage({ session, onNavigate, showStatus, version, initialMessage }) 
     }
   };
 
+  // Handle file preview — navigate to browser page in preview mode
+  const handleFilePreview = useCallback((file) => {
+    onNavigate('browser', {
+      mode: 'preview',
+      filePath: file.file_path,
+      fileName: file.file_name,
+      fileType: file.file_type || file.type,
+    });
+  }, [onNavigate]);
+
   // Handle voice input
   const handleVoiceInput = () => {
     setIsVoiceActive(prev => !prev);
@@ -558,7 +568,7 @@ function HomePage({ session, onNavigate, showStatus, version, initialMessage }) 
             <div className="message-attachments">
               {attachments.map((file, idx) => (
                 file.file_path ? (
-                  <FileAttachmentCard key={`file-${idx}`} file={file} />
+                  <FileAttachmentCard key={`file-${idx}`} file={file} onPreview={handleFilePreview} />
                 ) : (
                   <div key={`attach-${idx}`} className="attachment-item legacy">
                     <Icon name="file" size={14} />
@@ -598,7 +608,7 @@ function HomePage({ session, onNavigate, showStatus, version, initialMessage }) 
               <div className="message-attachments">
                 {attachments.map((file, idx) => (
                   file.file_path ? (
-                    <FileAttachmentCard key={`file-${idx}`} file={file} />
+                    <FileAttachmentCard key={`file-${idx}`} file={file} onPreview={handleFilePreview} />
                   ) : (
                     <div key={`attach-${idx}`} className="attachment-item legacy">
                       <Icon name="file" size={14} />
