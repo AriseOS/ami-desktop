@@ -19,7 +19,7 @@
     },
     {
       "from": "daemon-ts/package.json",
-      "to": "daemon-ts/"
+      "to": "daemon-ts/package.json"
     },
     {
       "from": "daemon-ts/config/",
@@ -40,7 +40,9 @@
       }
     ],
     "hardenedRuntime": true,
-    "gatekeeperAssess": false
+    "gatekeeperAssess": false,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.plist"
   },
   "dmg": {
     "contents": [

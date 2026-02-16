@@ -6,31 +6,30 @@
  * Tools: list_events, create_event, update_event, delete_event,
  *        get_event, get_free_busy, list_calendars, quick_add.
  *
- * Dependencies: googleapis npm package.
+ * Dependencies: @googleapis/calendar npm package.
  */
 
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
+import { calendar_v3, auth as googleAuth } from "@googleapis/calendar";
 import { createLogger } from "../utils/logging.js";
 
 const logger = createLogger("calendar-tools");
 
-// ===== Lazy import googleapis =====
+// ===== Calendar API helper =====
 
-async function getCalendarAPI(credentials: CalendarCredentials) {
-  const { google } = await import("googleapis");
-
-  const auth = new google.auth.OAuth2(
+function getCalendarAPI(credentials: CalendarCredentials) {
+  const oauth2Client = new googleAuth.OAuth2(
     credentials.clientId,
     credentials.clientSecret,
   );
 
-  auth.setCredentials({
+  oauth2Client.setCredentials({
     refresh_token: credentials.refreshToken,
     access_token: credentials.accessToken,
   });
 
-  return google.calendar({ version: "v3", auth });
+  return new calendar_v3.Calendar({ auth: oauth2Client });
 }
 
 // ===== Credentials =====

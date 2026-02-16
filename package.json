@@ -2,15 +2,16 @@
   "name": "ami-desktop",
   "productName": "Ami",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
     "postinstall": "cd daemon-ts && npm install",
     "dev": "vite",
     "build": "vite build",
+    "clean": "rm -rf release dist daemon-ts/dist",
     "build:daemon": "cd daemon-ts && npm ci && npm run build",
-    "build:all": "npm run build:daemon && npm run build && npx electron-builder",
+    "build:all": "rm -rf release && npm run build:daemon && npm run build && npx electron-builder",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on tcp:1420 && AMI_DEV_MODE=1 VITE_DEV_SERVER_URL=http://localhost:1420 electron .\"",
     "electron:build": "vite build && electron-builder"

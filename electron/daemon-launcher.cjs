@@ -37,7 +37,14 @@ class DaemonLauncher {
       console.warn(`[DaemonLauncher] Failed to remove stale port file: ${e.message}`);
     }
 
-    const env = { ...process.env, BROWSER_CDP_PORT: String(this.cdpPort) };
+    const env = {
+      ...process.env,
+      BROWSER_CDP_PORT: String(this.cdpPort),
+      // When using Electron binary as Node runtime (production mode),
+      // ELECTRON_RUN_AS_NODE makes it behave as pure Node.js without
+      // initializing Chromium — avoids V8 OOM from dual Electron instances.
+      ELECTRON_RUN_AS_NODE: '1',
+    };
 
     // On Unix, inherit stdio so logs appear in terminal during dev.
     // On Windows, hide the console window by using 'ignore'.

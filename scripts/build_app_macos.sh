@@ -169,6 +169,11 @@ if [ "$SKIP_DAEMON" = false ]; then
         exit 1
     fi
 
+    # Re-install with only production dependencies for packaging
+    # This removes devDependencies (typescript, esbuild, tsx, @types/*) from node_modules
+    echo "  Pruning devDependencies for packaging..."
+    npm ci --omit=dev
+
     echo -e "${GREEN}✓ TypeScript daemon built${NC}"
     echo ""
 else
@@ -181,6 +186,9 @@ if [ "$SKIP_ELECTRON" = false ]; then
     echo -e "${YELLOW}Step 2: Building Electron application...${NC}"
 
     cd "${PROJECT_ROOT}"
+
+    # Clean previous electron-builder output to prevent stale files
+    rm -rf "${ELECTRON_DIST}"
 
     # Build frontend (Vite)
     npm run build
@@ -218,6 +226,7 @@ if [ "$SHOULD_SIGN" = true ]; then
 
     echo "  Signing Ami.app..."
     codesign --deep --force --options runtime --timestamp \
+        --entitlements "${PROJECT_ROOT}/build/entitlements.mac.plist" \
         --sign "${CODESIGN_IDENTITY}" \
         "${APP_PATH}"
 

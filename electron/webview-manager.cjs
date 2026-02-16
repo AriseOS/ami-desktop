@@ -2,38 +2,51 @@
  * WebViewManager — manages a pool of WebContentsView instances for browser automation.
  * Each view shares the 'persist:user_login' partition for cookie sharing.
  * Playwright connects via CDP and claims pool pages by their marker URL.
+ *
+ * Lazy-loading strategy (inspired by Eigent):
+ * - No views created at startup — zero memory overhead on launch
+ * - Views created on-demand when daemon claims pool pages
+ * - Auto-expands: when free views ≤ 2, creates 2 more (up to MAX_POOL_SIZE)
+ * - Auto-shrinks: when inactive views > MAX_INACTIVE, cleans up oldest
  */
 
 const { WebContentsView, session } = require('electron');
 const { STEALTH_SCRIPT } = require('./stealth.cjs');
 
-const POOL_SIZE = 16;
+const MAX_POOL_SIZE = 8;
+const INITIAL_POOL_SIZE = 2; // Create a small seed pool so CDP has pages to discover
+const MAX_INACTIVE = 5;
 const POOL_MARKER = 'about:blank?ami=pool'; // Base marker; actual URLs include &viewId=N
 
 // Off-screen dimensions for agent browsing.
-// Must be full viewport size so that Chromium's CSS layout viewport matches
-// what the agent expects (1920×1080). Position off-screen so the user can't see it.
-// Same approach as Eigent: setBounds({ x: -1919, y: -1079, width: 1920, height: 1080 }).
 const OFFSCREEN_WIDTH = 1920;
 const OFFSCREEN_HEIGHT = 1080;
 
 class WebViewManager {
   constructor(win) {
     this.win = win;
-    this.views = new Map(); // id → { view, isShow }
+    this.views = new Map(); // id → { view, isShow, isActive }
+    this.nextId = 0;
+    this.lastCleanupTime = Date.now();
   }
 
   /**
-   * Create the initial pool of WebContentsView instances.
+   * Create a small seed pool so the daemon's CDP connection can discover pages.
+   * Unlike the old approach of creating 16 views upfront, this only creates 2.
    */
   initPool() {
-    for (let i = 0; i < POOL_SIZE; i++) {
-      this._createView(String(i));
+    for (let i = 0; i < INITIAL_POOL_SIZE; i++) {
+      this._createView(String(this.nextId++));
     }
-    console.log(`[WebViewManager] Pool initialized with ${POOL_SIZE} views`);
+    console.log(`[WebViewManager] Pool initialized with ${INITIAL_POOL_SIZE} seed views (max ${MAX_POOL_SIZE})`);
   }
 
   _createView(id) {
+    if (this.views.size >= MAX_POOL_SIZE) {
+      console.warn(`[WebViewManager] Pool at max capacity (${MAX_POOL_SIZE}), skipping creation`);
+      return null;
+    }
+
     const view = new WebContentsView({
       webPreferences: {
         partition: 'persist:user_login',
@@ -50,8 +63,6 @@ class WebViewManager {
 
     // Position off-screen at full viewport dimensions so that Chromium's
     // CSS layout viewport is 1920×1080 — matching what the agent expects.
-    // No setViewportSize / Emulation.setDeviceMetricsOverride needed;
-    // setBounds alone controls the CSS viewport naturally.
     view.setBounds({
       x: -(OFFSCREEN_WIDTH - 1),
       y: -(OFFSCREEN_HEIGHT - 1),
@@ -60,25 +71,30 @@ class WebViewManager {
     });
 
     // Inject stealth on every page load.
-    // We use did-finish-load + executeJavaScript (same as Eigent reference).
-    // NOTE: We do NOT use webContents.debugger.attach() because Playwright also
-    // connects via CDP (--remote-debugging-port). Two CDP clients on the same
-    // target causes conflicts and command failures.
     view.webContents.on('did-finish-load', () => {
       view.webContents.executeJavaScript(STEALTH_SCRIPT).catch(() => {});
     });
 
     // Track URL changes and notify renderer
     view.webContents.on('did-navigate', (_event, url) => {
+      const info = this.views.get(id);
+      if (info) {
+        // Mark as active once it navigates away from the pool marker
+        if (!url.startsWith(POOL_MARKER)) {
+          info.isActive = true;
+        }
+      }
+
       if (this.win && !this.win.isDestroyed()) {
-        const info = this.views.get(id);
         if (info && info.isShow) {
           this.win.webContents.send('url-updated', id, url);
         }
-        // Always fire view-state-changed for tab bar updates
         const title = view.webContents.isDestroyed() ? '' : view.webContents.getTitle();
         this.win.webContents.send('view-state-changed', id, { url, title });
       }
+
+      // Auto-expand pool when free views are running low
+      this._maybeExpandPool();
     });
 
     view.webContents.on('did-navigate-in-page', (_event, url) => {
@@ -135,7 +151,78 @@ class WebViewManager {
     // Add as child of the main window
     this.win.contentView.addChildView(view);
 
-    this.views.set(id, { view, isShow: false });
+    this.views.set(id, { view, isShow: false, isActive: false });
+    return id;
+  }
+
+  /**
+   * Auto-expand: if free (inactive) views ≤ 2, create 2 more up to MAX_POOL_SIZE.
+   * Also auto-shrink if inactive views exceed MAX_INACTIVE.
+   */
+  _maybeExpandPool() {
+    const inactive = this._countInactive();
+    const total = this.views.size;
+
+    // Auto-shrink: clean up excess inactive views (throttled to once per 30s)
+    if (inactive > MAX_INACTIVE && Date.now() - this.lastCleanupTime > 30000) {
+      this._cleanupInactiveViews();
+      this.lastCleanupTime = Date.now();
+    }
+
+    // Auto-expand: ensure at least 2 free views available
+    if (inactive <= 2 && total < MAX_POOL_SIZE) {
+      const toCreate = Math.min(2, MAX_POOL_SIZE - total);
+      console.log(`[WebViewManager] Auto-expanding pool: ${toCreate} new views (inactive=${inactive}, total=${total})`);
+      for (let i = 0; i < toCreate; i++) {
+        this._createView(String(this.nextId++));
+      }
+    }
+  }
+
+  _countInactive() {
+    let count = 0;
+    for (const [, info] of this.views) {
+      if (!info.isActive) count++;
+    }
+    return count;
+  }
+
+  _cleanupInactiveViews() {
+    const inactiveEntries = [];
+    for (const [id, info] of this.views) {
+      if (!info.isActive && !info.isShow) {
+        const url = info.view.webContents.isDestroyed() ? '' : info.view.webContents.getURL();
+        if (url.startsWith(POOL_MARKER) || url === '' || url === 'about:blank') {
+          inactiveEntries.push(id);
+        }
+      }
+    }
+
+    // Keep MAX_INACTIVE, remove the rest (oldest first by id)
+    const toRemove = inactiveEntries.slice(MAX_INACTIVE);
+    for (const id of toRemove) {
+      console.log(`[WebViewManager] Cleaning up inactive view: ${id}`);
+      this._destroyView(id);
+    }
+  }
+
+  _destroyView(id) {
+    const info = this.views.get(id);
+    if (!info) return;
+
+    try {
+      if (!info.view.webContents.isDestroyed()) {
+        info.view.webContents.removeAllListeners();
+        info.view.webContents.close();
+      }
+      if (this.win && this.win.contentView) {
+        this.win.contentView.removeChildView(info.view);
+      }
+    } catch (e) {
+      console.error(`[WebViewManager] Error destroying view ${id}:`, e.message);
+    }
+
+    this.views.delete(id);
   }
 
   /**
@@ -293,18 +380,8 @@ class WebViewManager {
    * Destroy all views and clean up.
    */
   destroy() {
-    for (const [id, info] of this.views) {
-      try {
-        if (!info.view.webContents.isDestroyed()) {
-          info.view.webContents.removeAllListeners();
-          info.view.webContents.close();
-        }
-        if (this.win && this.win.contentView) {
-          this.win.contentView.removeChildView(info.view);
-        }
-      } catch (e) {
-        console.error(`[WebViewManager] Error destroying view ${id}:`, e.message);
-      }
+    for (const [id] of this.views) {
+      this._destroyView(id);
     }
     this.views.clear();
   }

@@ -45,6 +45,9 @@ if (-not $SkipDaemon) {
         Write-Host "Building TypeScript daemon..." -ForegroundColor Yellow
         npm run build
 
+        Write-Host "Pruning devDependencies for packaging..." -ForegroundColor Yellow
+        npm ci --omit=dev
+
         Write-Host "TypeScript daemon built successfully" -ForegroundColor Green
     }
 } else {
@@ -64,6 +67,13 @@ if (-not $SkipFrontend) {
 # Step 3: Build Electron app
 Invoke-Step "Step 3: Building Electron application (npx electron-builder)..." {
     Set-Location $ProjectRoot
+
+    # Clean previous electron-builder output to prevent stale files
+    if (Test-Path $ElectronDist) {
+        Remove-Item $ElectronDist -Recurse -Force
+        Write-Host "Cleaned previous release directory" -ForegroundColor Yellow
+    }
+
     npx electron-builder --win
 }
 

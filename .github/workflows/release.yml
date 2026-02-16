@@ -37,7 +37,31 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            daemon-ts/package-lock.json
+
+      - name: Get Electron version
+        id: electron-version
+        run: echo "version=$(node -p "require('./package.json').devDependencies.electron")" >> $GITHUB_OUTPUT
+
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/electron
+          key: electron-macos-${{ steps.electron-version.outputs.version }}
+
+      - name: Cache electron-builder
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/electron-builder
+          key: electron-builder-macos-${{ hashFiles('electron-builder.json') }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: pip-macos-boto3
 
       - name: Get version
         id: version
@@ -158,7 +182,32 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            daemon-ts/package-lock.json
+
+      - name: Get Electron version
+        id: electron-version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').devDependencies.electron")" >> $GITHUB_OUTPUT
+
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\electron\Cache
+          key: electron-windows-${{ steps.electron-version.outputs.version }}
+
+      - name: Cache electron-builder
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\electron-builder\Cache
+          key: electron-builder-windows-${{ hashFiles('electron-builder.json') }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: pip-windows-boto3
 
       - name: Get version
         id: version
