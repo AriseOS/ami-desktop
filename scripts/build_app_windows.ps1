@@ -26,6 +26,7 @@ function Invoke-Step {
     & $Action
 }
 
+$ElectronDist   = Join-Path $ProjectRoot 'release'
 $PortableOutDir = Join-Path $ProjectRoot 'portable'
 $PortableBinDir = Join-Path $PortableOutDir 'AmiPortable'
 
@@ -76,9 +77,6 @@ Invoke-Step "Step 3: Building Electron application (npx electron-builder)..." {
 
     npx electron-builder --win
 }
-
-# electron-builder output directory
-$ElectronDist = Join-Path $ProjectRoot 'release'
 
 # Step 4: Assemble portable directory
 Invoke-Step "Step 4: Assembling portable directory..." {
