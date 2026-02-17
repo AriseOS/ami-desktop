@@ -1,0 +1,91 @@
+.login-welcome-overlay {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  font-family: var(--font-sans);
+  min-height: 0;
+}
+
+.login-welcome-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 720px;
+  width: 100%;
+  padding: 32px 24px;
+}
+
+.login-welcome-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+
+.login-welcome-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 32px;
+}
+
+.login-welcome-cards {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 32px;
+}
+
+.login-welcome-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.login-welcome-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-primary-50);
+  color: var(--primary-main);
+  margin-bottom: 12px;
+}
+
+.login-welcome-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.login-welcome-card-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.login-welcome-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* Stack cards vertically on narrow widths */
+@media (max-width: 600px) {
+  .login-welcome-cards {
+    flex-direction: column;
+  }
+}
