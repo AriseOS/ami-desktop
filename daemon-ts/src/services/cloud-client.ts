@@ -189,8 +189,8 @@ export class CloudClient {
     return this.post("/api/v1/memory/unpublish", { phrase_id: phraseId }, creds);
   }
 
-  async getPublishStatus(creds?: RequestCredentials): Promise<unknown> {
-    return this.get("/api/v1/memory/publish-status", creds);
+  async getPublishStatus(phraseId: string, creds?: RequestCredentials): Promise<unknown> {
+    return this.get(`/api/v1/memory/publish-status?phrase_id=${encodeURIComponent(phraseId)}`, creds);
   }
 
   // ===== Recordings =====

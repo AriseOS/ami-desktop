@@ -257,7 +257,7 @@ export class MemoryToolkit {
       const data = (await memoryPost(
         this.baseUrl,
         "/api/v1/memory/query",
-        { query: task, query_type: "task", top_k: 5 },
+        { target: task, as_type: "task", top_k: 5 },
       )) as QueryResult;
 
       this.emitter?.emit({
@@ -287,8 +287,8 @@ export class MemoryToolkit {
         this.baseUrl,
         "/api/v1/memory/query",
         {
-          query: `${startState} -> ${endState}`,
-          query_type: "navigation",
+          target: `${startState} -> ${endState}`,
+          as_type: "navigation",
           start_state: startState,
           end_state: endState,
         },
@@ -310,9 +310,9 @@ export class MemoryToolkit {
         this.baseUrl,
         "/api/v1/memory/query",
         {
-          query: currentState,
-          query_type: "actions",
-          target,
+          target: currentState,
+          as_type: "actions",
+          current_state: currentState,
         },
       )) as QueryResult;
     } catch (err) {

@@ -207,6 +207,29 @@ export function storeSession(data: {
 }
 
 /**
+ * Update tokens in an existing session (called after token refresh).
+ * Only overwrites fields that are provided; preserves everything else.
+ */
+export function updateSessionTokens(data: {
+  access_token: string;
+  refresh_token?: string;
+}): void {
+  const session = readSessionFile();
+  if (!session) {
+    logger.warn("No existing session to update tokens for");
+    return;
+  }
+
+  session.access_token = data.access_token;
+  if (data.refresh_token) {
+    session.refresh_token = data.refresh_token;
+  }
+  session.stored_at = new Date().toISOString();
+  writeSessionFile(session);
+  logger.info("Session tokens updated");
+}
+
+/**
  * Clear the stored session (logout).
  */
 export function clearSession(): void {

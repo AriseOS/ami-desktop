@@ -182,9 +182,14 @@ memoryRouter.post("/unpublish", async (req: Request, res: Response) => {
 
 memoryRouter.get("/publish-status", async (req: Request, res: Response) => {
   try {
+    const phraseId = req.query.phrase_id as string;
+    if (!phraseId) {
+      res.status(400).json({ error: "phrase_id query parameter required" });
+      return;
+    }
     const client = getCloudClient();
     const creds = getCredentials(req);
-    const result = await client.getPublishStatus(creds);
+    const result = await client.getPublishStatus(phraseId, creds);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: String(err) });

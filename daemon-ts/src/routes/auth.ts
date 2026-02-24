@@ -14,7 +14,7 @@ import { Router, type Request, type Response } from "express";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { getConfig, AMI_DIR } from "../utils/config.js";
-import { storeSession, clearSession, getSession, getAuthToken } from "../services/auth-manager.js";
+import { storeSession, clearSession, getSession, getAuthToken, updateSessionTokens } from "../services/auth-manager.js";
 import { createLogger } from "../utils/logging.js";
 
 const logger = createLogger("auth-routes");
@@ -172,16 +172,11 @@ authRouter.post("/refresh", async (req: Request, res: Response) => {
 
     const data = (await resp.json()) as Record<string, unknown>;
 
-    // Intercept successful refresh → update stored tokens
+    // Intercept successful refresh → update stored tokens (preserve existing refresh_token)
     if (resp.ok && data.access_token) {
-      // Read existing session to preserve user info
-      const existing = getSession();
-      storeSession({
+      updateSessionTokens({
         access_token: data.access_token as string,
-        refresh_token: (data.refresh_token as string) ?? "",
-        username: existing.username ?? "",
-        user_id: existing.user_id ?? "",
-        email: existing.email ?? "",
+        refresh_token: data.refresh_token as string | undefined,
       });
     }
 
