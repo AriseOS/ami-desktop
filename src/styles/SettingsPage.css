@@ -55,6 +55,13 @@
     margin-bottom: var(--spacing-md);
 }
 
+.settings-section > .section-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--spacing-md) 0;
+}
+
 .section-title {
     font-size: var(--font-size-lg);
     font-weight: 600;
@@ -251,13 +258,18 @@
     cursor: not-allowed;
 }
 
-.loading-container {
+.settings-page .loading-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 400px;
     color: var(--text-secondary);
+    gap: var(--spacing-md, 16px);
+}
+
+.settings-page .integrations-card {
+    padding: var(--spacing-lg);
 }
 
 .no-data {
@@ -332,4 +344,164 @@
 
 .spinning {
     animation: spin 1s linear infinite;
+}
+
+/* Form Elements (Local Mode API Config) */
+.settings-page .form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.settings-page .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.settings-page .form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    box-sizing: border-box;
+}
+
+.settings-page .form-input:focus {
+    outline: none;
+    border-color: var(--primary-main);
+    box-shadow: 0 0 0 2px var(--primary-light, rgba(59, 130, 246, 0.15));
+}
+
+.settings-page .form-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Logout Confirmation Modal */
+.settings-page .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: settingsModalFadeIn 0.2s ease-out;
+}
+
+@keyframes settingsModalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.settings-page .modal-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 440px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    animation: settingsModalSlideUp 0.2s ease-out;
+    overflow: hidden;
+}
+
+@keyframes settingsModalSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.settings-page .modal-header {
+    padding: var(--spacing-lg) var(--spacing-lg) 0;
+}
+
+.settings-page .modal-header h3 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.settings-page .modal-body {
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.settings-page .modal-body p {
+    margin: 0 0 var(--spacing-sm) 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.settings-page .modal-body p:last-child {
+    margin-bottom: 0;
+}
+
+.settings-page .warning-text {
+    color: var(--error-color) !important;
+    font-weight: 500;
+    font-size: 13px !important;
+}
+
+.settings-page .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+}
+
+.settings-page .btn-cancel {
+    padding: 10px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.settings-page .btn-cancel:hover {
+    background: var(--bg-tertiary);
+}
+
+.settings-page .btn-confirm-delete {
+    padding: 10px 20px;
+    background: var(--error-color);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.settings-page .btn-confirm-delete:hover {
+    background: #e53e3e;
+    filter: brightness(0.9);
+}
+
+/* Auth Link (Local Mode) */
+.settings-page .auth-link {
+    color: var(--primary-main);
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    transition: opacity var(--transition-fast);
+}
+
+.settings-page .auth-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
 }

@@ -11,8 +11,10 @@
  * - Status indicators (installed/not installed)
  */
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Icon from './Icons';
 import { api } from '../utils/api';
+import '../styles/IntegrationList.css';
 
 // Available integrations configuration
 export const INTEGRATIONS = [
@@ -21,49 +23,49 @@ export const INTEGRATIONS = [
     name: 'Gmail',
     icon: '📧',
     color: '#EA4335',
-    description: 'Send and receive emails',
+    descKey: 'integrationList.gmailDesc',
     authType: 'oauth',
     provider: 'google',
     scopes: ['gmail.readonly', 'gmail.send', 'gmail.compose'],
     envVars: ['GMAIL_CREDENTIALS_PATH'],
-    features: ['Send emails', 'Search inbox', 'Read messages', 'Manage labels'],
+    featureKeys: ['integrationList.gmailFeature1', 'integrationList.gmailFeature2', 'integrationList.gmailFeature3', 'integrationList.gmailFeature4'],
   },
   {
     id: 'google_drive',
     name: 'Google Drive',
     icon: '📁',
     color: '#4285F4',
-    description: 'Access and manage files',
+    descKey: 'integrationList.driveDesc',
     authType: 'oauth',
     provider: 'google',
     scopes: ['drive.readonly', 'drive.file'],
     envVars: ['GDRIVE_CREDENTIALS_PATH'],
-    features: ['List files', 'Read content', 'Create files', 'Upload/download'],
+    featureKeys: ['integrationList.driveFeature1', 'integrationList.driveFeature2', 'integrationList.driveFeature3', 'integrationList.driveFeature4'],
   },
   {
     id: 'google_calendar',
     name: 'Google Calendar',
     icon: '📅',
     color: '#0F9D58',
-    description: 'Manage calendar events',
+    descKey: 'integrationList.calendarDesc',
     authType: 'oauth',
     provider: 'google',
     scopes: ['calendar', 'calendar.events'],
     envVars: ['GCAL_CREDENTIALS_PATH'],
-    features: ['List events', 'Create events', 'Quick add', 'Free/busy info'],
+    featureKeys: ['integrationList.calendarFeature1', 'integrationList.calendarFeature2', 'integrationList.calendarFeature3', 'integrationList.calendarFeature4'],
   },
   {
     id: 'notion',
     name: 'Notion',
     icon: '📝',
     color: '#000000',
-    description: 'Access Notion pages and databases',
+    descKey: 'integrationList.notionDesc',
     authType: 'token',
     envVars: ['NOTION_API_KEY'],
     configFields: [
       { key: 'api_key', label: 'API Key', type: 'password', placeholder: 'secret_xxx...' },
     ],
-    features: ['Search pages', 'Read content', 'Create pages', 'Query databases'],
+    featureKeys: ['integrationList.notionFeature1', 'integrationList.notionFeature2', 'integrationList.notionFeature3', 'integrationList.notionFeature4'],
   },
 ];
 
@@ -76,6 +78,7 @@ function IntegrationList({
   compact = false,
   className = '',
 }) {
+  const { t } = useTranslation();
   const [installed, setInstalled] = useState([]);
   const [loading, setLoading] = useState(true);
   const [configuring, setConfiguring] = useState(null);
@@ -114,7 +117,7 @@ function IntegrationList({
       }
     } catch (e) {
       console.error('Install error:', e);
-      setError(`Failed to install ${integration.name}: ${e.message}`);
+      setError(t('integrationList.installFailed', { name: integration.name, error: e.message }));
       setInstalling(null);
     }
   };
@@ -122,7 +125,7 @@ function IntegrationList({
   const startOAuthFlow = async (integration) => {
     // OAuth flow not yet implemented in Electron
     console.warn('OAuth flow not yet implemented for integration:', integration.id);
-    setError('OAuth flow not yet available');
+    setError(t('integrationList.oauthNotAvailable'));
     setInstalling(null);
   };
 
@@ -138,7 +141,7 @@ function IntegrationList({
       setConfiguring(null);
     } catch (e) {
       console.error('Configure error:', e);
-      setError(`Failed to configure: ${e.message}`);
+      setError(t('integrationList.configureFailed', { error: e.message }));
     }
   };
 
@@ -152,7 +155,7 @@ function IntegrationList({
       onIntegrationChange?.(integrationId, 'uninstalled');
     } catch (e) {
       console.error('Uninstall error:', e);
-      setError(`Failed to uninstall: ${e.message}`);
+      setError(t('integrationList.uninstallFailed', { error: e.message }));
     }
   };
 
@@ -160,7 +163,7 @@ function IntegrationList({
     return (
       <div className={`integration-list loading ${className}`}>
         <div className="loading-spinner" />
-        <span>Loading integrations...</span>
+        <span>{t('integrationList.loading')}</span>
       </div>
     );
   }
@@ -170,9 +173,9 @@ function IntegrationList({
       {showTitle && (
         <div className="list-header">
           <span className="header-icon">🔌</span>
-          <h3 className="header-title">Cloud Integrations</h3>
+          <h3 className="header-title">{t('integrationList.cloudIntegrations')}</h3>
           <span className="header-count">
-            {installed.length}/{INTEGRATIONS.length} installed
+            {installed.length}/{INTEGRATIONS.length} {t('integrationList.installed')}
           </span>
         </div>
       )}
@@ -197,6 +200,7 @@ function IntegrationList({
             onInstall={() => handleInstall(integration)}
             onUninstall={() => handleUninstall(integration.id)}
             compact={compact}
+            t={t}
           />
         ))}
       </div>
@@ -207,6 +211,7 @@ function IntegrationList({
           integration={configuring}
           onSave={(config) => handleSaveConfig(configuring.id, config)}
           onClose={() => setConfiguring(null)}
+          t={t}
         />
       )}
     </div>
@@ -223,6 +228,7 @@ function IntegrationCard({
   onInstall,
   onUninstall,
   compact = false,
+  t,
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -252,36 +258,36 @@ function IntegrationCard({
         </span>
         <div className="card-info">
           <h4 className="card-name">{integration.name}</h4>
-          <p className="card-description">{integration.description}</p>
+          <p className="card-description">{t(integration.descKey)}</p>
         </div>
         <div className="card-status">
           {installed ? (
             <span className="status-badge installed">
               <Icon name="check" size={12} />
-              Installed
+              {t('integrationList.statusInstalled')}
             </span>
           ) : (
-            <span className="status-badge">Not installed</span>
+            <span className="status-badge">{t('integrationList.statusNotInstalled')}</span>
           )}
         </div>
       </div>
 
       {/* Features (expandable) */}
-      {integration.features && (
+      {integration.featureKeys && (
         <div className={`card-features ${expanded ? 'expanded' : ''}`}>
           <button
             className="features-toggle"
             onClick={() => setExpanded(!expanded)}
           >
-            <span>Features</span>
+            <span>{t('integrationList.features')}</span>
             <Icon name={expanded ? 'chevronUp' : 'chevronDown'} size={14} />
           </button>
           {expanded && (
             <ul className="features-list">
-              {integration.features.map((feature, idx) => (
+              {integration.featureKeys.map((featureKey, idx) => (
                 <li key={idx}>
                   <Icon name="check" size={12} />
-                  {feature}
+                  {t(featureKey)}
                 </li>
               ))}
             </ul>
@@ -296,7 +302,7 @@ function IntegrationCard({
             className="btn btn-secondary btn-sm"
             onClick={onUninstall}
           >
-            Uninstall
+            {t('integrationList.uninstall')}
           </button>
         ) : (
           <button
@@ -307,12 +313,12 @@ function IntegrationCard({
             {installing ? (
               <>
                 <span className="spinner-sm" />
-                Installing...
+                {t('integrationList.installing')}
               </>
             ) : (
               <>
                 <Icon name="plus" size={14} />
-                Install
+                {t('integrationList.install')}
               </>
             )}
           </button>
@@ -329,6 +335,7 @@ function ConfigurationDialog({
   integration,
   onSave,
   onClose,
+  t,
 }) {
   const [config, setConfig] = useState({});
   const [error, setError] = useState(null);
@@ -341,7 +348,7 @@ function ConfigurationDialog({
       .filter(field => field.required !== false && !config[field.key]);
 
     if (missingFields.length > 0) {
-      setError(`Please fill in: ${missingFields.map(f => f.label).join(', ')}`);
+      setError(t('integrationList.fillRequired', { fields: missingFields.map(f => f.label).join(', ') }));
       return;
     }
 
@@ -353,7 +360,7 @@ function ConfigurationDialog({
       <div className="config-dialog" onClick={e => e.stopPropagation()}>
         <div className="dialog-header">
           <span className="dialog-icon">{integration.icon}</span>
-          <h3>Configure {integration.name}</h3>
+          <h3>{t('integrationList.configure', { name: integration.name })}</h3>
           <button className="close-btn" onClick={onClose}>
             <Icon name="close" size={18} />
           </button>
@@ -385,13 +392,13 @@ function ConfigurationDialog({
 
             {integration.id === 'notion' && (
               <div className="help-section">
-                <h4>How to get your Notion API Key:</h4>
+                <h4>{t('integrationList.notionGuideTitle')}</h4>
                 <ol>
-                  <li>Go to <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer">Notion Integrations</a></li>
-                  <li>Click "New integration"</li>
-                  <li>Give it a name and select your workspace</li>
-                  <li>Copy the "Internal Integration Token"</li>
-                  <li>Share your pages/databases with the integration</li>
+                  <li>{t('integrationList.notionStep1')} <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer">{t('integrationList.notionStep1Link')}</a></li>
+                  <li>{t('integrationList.notionStep2')}</li>
+                  <li>{t('integrationList.notionStep3')}</li>
+                  <li>{t('integrationList.notionStep4')}</li>
+                  <li>{t('integrationList.notionStep5')}</li>
                 </ol>
               </div>
             )}
@@ -399,10 +406,10 @@ function ConfigurationDialog({
 
           <div className="dialog-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
+              {t('integrationList.cancel')}
             </button>
             <button type="submit" className="btn btn-primary">
-              Save Configuration
+              {t('integrationList.saveConfig')}
             </button>
           </div>
         </form>
@@ -415,6 +422,7 @@ function ConfigurationDialog({
  * Compact integration status bar
  */
 export function IntegrationStatusBar({ className = '' }) {
+  const { t } = useTranslation();
   const [installed, setInstalled] = useState([]);
 
   useEffect(() => {
@@ -435,7 +443,7 @@ export function IntegrationStatusBar({ className = '' }) {
 
   return (
     <div className={`integration-status-bar ${className}`}>
-      <span className="status-label">Connected:</span>
+      <span className="status-label">{t('integrationList.connected')}</span>
       {installedIntegrations.map(integration => (
         <span
           key={integration.id}

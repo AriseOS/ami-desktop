@@ -198,9 +198,9 @@ function CognitivePhrasesPage({ session, onNavigate, showStatus }) {
                 <div className="empty-icon"><Icon name="brain" /></div>
                 <h3>No memories yet</h3>
                 <p>Memories are created when you record workflows. Start recording to build your memory.</p>
-                <button className="btn-start-recording" onClick={() => onNavigate('quick-start')}>
-                  <span className="button-icon"><Icon name="video" /></span>
-                  <span>Start Recording</span>
+                <button className="btn-start-recording" onClick={() => onNavigate('browser')}>
+                  <span className="button-icon"><Icon name="globe" /></span>
+                  <span>Open Browser</span>
                 </button>
               </>
             ) : (

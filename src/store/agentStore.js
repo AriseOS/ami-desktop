@@ -1070,7 +1070,7 @@ export const useAgentStore = create((set, get) => ({
             return t;
           });
 
-          // Update subtasks as well (for TaskDecomposition component)
+          // Update subtasks as well
           const updatedSubtasks = (currentTask.subtasks || []).map(t => {
             if (t.id === effectiveSubTaskId) {
               return {

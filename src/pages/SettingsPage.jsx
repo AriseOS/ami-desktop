@@ -179,7 +179,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
         {/* Header */}
         <div className="settings-header">
           <button className="back-button" onClick={() => navigate('main')}>
-            <Icon icon="arrowLeft" size={16} /> {t('settings.back')}
+            <Icon name="arrowLeft" size={16} /> {t('settings.back')}
           </button>
           <h1 className="settings-title">{t('settings.title')}</h1>
         </div>
@@ -303,7 +303,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
               )}
             </div>
             <button className="btn btn-danger" onClick={handleLogoutClick}>
-              <Icon icon="logOut" size={16} /> {t('settings.logout')}
+              <Icon name="logOut" size={16} /> {t('settings.logout')}
             </button>
           </section>
         )}
@@ -334,9 +334,9 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
 
         {/* Appearance Section */}
         <section className="settings-section">
-          <h2 className="section-title">{t('settings.appearance') || 'Appearance'}</h2>
+          <h2 className="section-title">{t('settings.appearance')}</h2>
           <div className="info-card">
-            <p style={{ marginBottom: '12px' }}>{t('settings.appearanceDesc') || 'Choose your preferred theme'}</p>
+            <p style={{ marginBottom: '12px' }}>{t('settings.appearanceDesc')}</p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 type="button"
@@ -344,7 +344,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
                 onClick={() => setAppearance('light')}
               >
                 <Icon name="sun" size={16} />
-                {t('settings.themeLight') || 'Light'}
+                {t('settings.themeLight')}
               </button>
               <button
                 type="button"
@@ -352,7 +352,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
                 onClick={() => setAppearance('dark')}
               >
                 <Icon name="moon" size={16} />
-                {t('settings.themeDark') || 'Dark'}
+                {t('settings.themeDark')}
               </button>
               <button
                 type="button"
@@ -360,7 +360,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
                 onClick={() => setAppearance('system')}
               >
                 <Icon name="monitor" size={16} />
-                {t('settings.themeSystem') || 'System'}
+                {t('settings.themeSystem')}
               </button>
               <button
                 type="button"
@@ -368,7 +368,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
                 onClick={() => setAppearance('transparent')}
               >
                 <Icon name="layers" size={16} />
-                {t('settings.themeTransparent') || 'Transparent'}
+                {t('settings.themeTransparent')}
               </button>
             </div>
           </div>
@@ -376,13 +376,13 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
 
         {/* Agent Settings Section */}
         <section className="settings-section">
-          <h2 className="section-title">{t('settings.agentSettings') || 'Agent Settings'}</h2>
+          <h2 className="section-title">{t('settings.agentSettings')}</h2>
           <div className="info-card">
             {/* Auto-confirm delay */}
             <div className="info-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-              <span className="info-label">{t('settings.autoConfirmDelay') || 'Auto-confirm Delay'}</span>
+              <span className="info-label">{t('settings.autoConfirmDelay')}</span>
               <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                {t('settings.autoConfirmDelayDesc') || 'Automatically confirm task decomposition after this delay (0 to disable)'}
+                {t('settings.autoConfirmDelayDesc')}
               </p>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
                 <input
@@ -402,7 +402,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
                   }}
                 />
                 <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-                  {t('settings.seconds') || 'seconds'}
+                  {t('settings.seconds')}
                 </span>
               </div>
             </div>
@@ -410,9 +410,9 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
             {/* Show token usage toggle */}
             <div className="info-row" style={{ alignItems: 'center' }}>
               <div>
-                <span className="info-label">{t('settings.showTokenUsage') || 'Show Token Usage'}</span>
+                <span className="info-label">{t('settings.showTokenUsage')}</span>
                 <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                  {t('settings.showTokenUsageDesc') || 'Display token consumption during task execution'}
+                  {t('settings.showTokenUsageDesc')}
                 </p>
               </div>
               <label className="toggle-switch">
@@ -429,62 +429,12 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
 
         {/* Integrations Section */}
         <section className="settings-section">
-          <h2 className="section-title">{t('settings.integrations') || 'Integrations'}</h2>
+          <h2 className="section-title">{t('settings.integrations')}</h2>
           <div className="info-card integrations-card">
             <p style={{ marginBottom: '16px', color: 'var(--text-secondary)' }}>
-              {t('settings.integrationsDesc') || 'Connect cloud services to enhance automation capabilities'}
+              {t('settings.integrationsDesc')}
             </p>
             <IntegrationList showTitle={false} />
-          </div>
-        </section>
-
-        {/* Data & Storage Section */}
-        <section className="settings-section">
-          <h2 className="section-title">{t('settings.dataStorage') || 'Data & Storage'}</h2>
-          <div className="info-card">
-            <div
-              className="info-row clickable-row"
-              onClick={() => navigate('recordings-library')}
-              style={{ cursor: 'pointer' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Icon name="video" size={20} />
-                <div>
-                  <span className="info-label" style={{ display: 'block', marginBottom: '4px' }}>
-                    {t('settings.recordingsLibrary') || 'Recordings Library'}
-                  </span>
-                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                    {t('settings.recordingsLibraryDesc') || 'View and manage your recorded sessions'}
-                  </p>
-                </div>
-              </div>
-              <Icon name="chevronRight" size={20} style={{ color: 'var(--text-tertiary)' }} />
-            </div>
-          </div>
-        </section>
-
-        {/* Developer Tools Section */}
-        <section className="settings-section">
-          <h2 className="section-title">{t('settings.developerTools') || 'Developer Tools'}</h2>
-          <div className="info-card">
-            <div
-              className="info-row clickable-row"
-              onClick={() => navigate('agent')}
-              style={{ cursor: 'pointer' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Icon name="terminal" size={20} />
-                <div>
-                  <span className="info-label" style={{ display: 'block', marginBottom: '4px' }}>
-                    {t('settings.agentDebugView') || 'Agent Debug View'}
-                  </span>
-                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-tertiary)' }}>
-                    {t('settings.agentDebugViewDesc') || 'View detailed agent execution logs, browser states, and debug info'}
-                  </p>
-                </div>
-              </div>
-              <Icon name="chevronRight" size={20} style={{ color: 'var(--text-tertiary)' }} />
-            </div>
           </div>
         </section>
 
@@ -498,7 +448,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
               onClick={handleRefreshQuota}
               disabled={refreshing}
             >
-              <Icon icon="refreshCw" size={14} className={refreshing ? 'spinning' : ''} />
+              <Icon name="refreshCw" size={14} className={refreshing ? 'spinning' : ''} />
               {refreshing ? t('settings.refreshing') : t('settings.refresh')}
             </button>
           </div>
@@ -537,12 +487,12 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
                 {/* Warnings */}
                 {quotaPercentage >= 100 && (
                   <div className="alert alert-danger">
-                    <Icon icon="alertTriangle" size={16} /> {t('settings.quotaLimitReached')}
+                    <Icon name="alertTriangle" size={16} /> {t('settings.quotaLimitReached')}
                   </div>
                 )}
                 {quotaPercentage >= 80 && quotaPercentage < 100 && (
                   <div className="alert alert-warning">
-                    <Icon icon="alertTriangle" size={16} /> {t('settings.quotaLimitApproaching')}
+                    <Icon name="alertTriangle" size={16} /> {t('settings.quotaLimitApproaching')}
                   </div>
                 )}
               </div>

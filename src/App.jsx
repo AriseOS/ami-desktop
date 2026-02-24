@@ -14,25 +14,11 @@ import SetupPage from "./pages/SetupPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import SettingsPage from "./pages/SettingsPage";
-import RecordingReplayPage from "./pages/RecordingReplayPage";
-import QuickStartPage from "./pages/QuickStartPage";
 import RecordingAnalysisPage from "./pages/RecordingAnalysisPage";
-import GenerationPage from "./pages/GenerationPage";
-import WorkflowDetailPage from "./pages/WorkflowDetailPage";
-import WorkflowGenerationPage from "./pages/WorkflowGenerationPage";
-import WorkflowResultPage from "./pages/WorkflowResultPage";
-import ExecutionMonitorPage from "./pages/ExecutionMonitorPage";
-import ExecutionResultPage from "./pages/ExecutionResultPage";
-import RecordingsLibraryPage from "./pages/RecordingsLibraryPage";
-import RecordingDetailPage from "./pages/RecordingDetailPage";
 import CognitivePhrasesPage from "./pages/CognitivePhrasesPage";
 import CognitivePhraseDetailPage from "./pages/CognitivePhraseDetailPage";
-// MetaflowPreviewPage removed - MetaFlow is now internal, users work with Workflows directly
-// DataManagementPage removed - Data is now per-workflow, see WorkflowDetailPage "Data" tab
-import WorkflowExecutionLivePage from "./pages/WorkflowExecutionLivePage";
 import DocsPage from "./pages/DocsPage";
 import BackendErrorPage from "./pages/BackendErrorPage";
-import AgentPage from "./pages/AgentPage";
 import MemoryPage from "./pages/MemoryPage";
 import HomePage from "./pages/HomePage";
 import ExplorePage from "./pages/ExplorePage";
@@ -355,9 +341,6 @@ function App() {
     setIsLoggedIn(false);
     setIsLocalMode(false);
     setSession(null);
-    setHasWorkflows(false);
-    setRecentWorkflows([]);
-
     // Clear local mode flag
     await window.electronAPI.storeDelete('ami_local_mode').catch(() => {});
 
@@ -367,225 +350,7 @@ function App() {
     console.log('[App] User logged out');
   };
 
-  // Browser state
-  const [browserOpening, setBrowserOpening] = useState(false);
 
-  // Open browser handler — navigate to browser page, restoring last active tab
-  const handleOpenBrowser = async () => {
-    navigate("browser");
-  };
-
-
-  // Check if user has workflows
-  const [hasWorkflows, setHasWorkflows] = useState(false);
-  const [recentWorkflows, setRecentWorkflows] = useState([]);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
-
-  // Load dashboard data
-  const fetchDashboard = async () => {
-    if (!session?.username) {
-      console.log('[App] Cannot fetch dashboard: user not logged in');
-      setHasWorkflows(false);
-      setRecentWorkflows([]);
-      return;
-    }
-
-    try {
-      const data = await api.getDashboard(session.username);
-
-      // Determine if user is returning user based on workflow count
-      setHasWorkflows(data.has_workflows || data.total_workflows > 0);
-      setRecentWorkflows(data.recent_workflows || []);
-    } catch (error) {
-      console.error('Error fetching dashboard:', error);
-      // Default to new user experience on error
-      setHasWorkflows(false);
-      setRecentWorkflows([]);
-    } finally {
-      setDashboardLoading(false);
-    }
-  };
-
-  // Load dashboard data on mount and when returning to main page
-  useEffect(() => {
-    if (currentPage === "main" && session?.username) {
-      fetchDashboard();
-    }
-  }, [currentPage, session?.username]);
-
-  // Main page for NEW users
-  const renderNewUserHome = () => (
-    <div className="page home-page new-user fade-in">
-      <div className="home-hero">
-        <h1 className="hero-title">{t('app.welcome')}</h1>
-        <p className="hero-subtitle">{t('app.subtitle')}</p>
-      </div>
-
-      <div className="card home-main-card" style={{ padding: '40px', maxWidth: '600px', margin: '0 auto' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '16px' }}>{t('app.startFirstAutomation')}</h2>
-        <p style={{ textAlign: 'center', marginBottom: '32px', color: 'var(--text-secondary)' }}>
-          {t('app.recordDesc')}
-        </p>
-
-        <div className="flex-row" style={{ gap: '20px', justifyContent: 'center' }}>
-          <button className="btn btn-primary" onClick={() => navigate("quick-start")} style={{ padding: '12px 24px', fontSize: '16px', minWidth: '180px', justifyContent: 'center' }}>
-            <Icon name="record" size={20} />
-            <span>{t('app.startRecording')}</span>
-          </button>
-
-          <button
-            className="btn btn-secondary"
-            onClick={handleOpenBrowser}
-            disabled={browserOpening}
-            style={{ padding: '12px 24px', fontSize: '16px', minWidth: '180px', justifyContent: 'center' }}
-          >
-            <Icon name="browser" size={20} />
-            <span>{browserOpening ? t('app.opening') : t('app.openBrowser')}</span>
-          </button>
-
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: '24px' }}>
-          <a style={{ color: 'var(--primary-main)', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }} onClick={() => navigate("workflows")}>
-            {t('app.seeOthers')}
-          </a>
-        </div>
-      </div>
-
-      <button
-        className="btn btn-secondary"
-        title="Help"
-        style={{ position: 'fixed', bottom: '30px', right: '30px', borderRadius: '50%', width: '48px', height: '48px', padding: 0 }}
-        onClick={() => navigate("docs", { topicId: "overview-getting-started" })}
-      >
-        <Icon name="book" size={24} />
-      </button>
-
-      <button
-        className="btn-icon-ghost"
-        title="Settings"
-        onClick={() => navigate("settings")}
-        style={{ position: 'absolute', top: '20px', right: '20px' }}
-      >
-        <Icon name="settings" size={24} />
-      </button>
-
-      <div className="footer" style={{ textAlign: 'center', marginTop: '40px', color: 'var(--text-tertiary)', fontSize: '12px' }}>
-        <p>Ami v{versionInfo?.version || '1.0.0'} • {session?.username ? `Logged in as ${session.username}` : isLocalMode ? t('auth.localModeActive') : ''}</p>
-      </div>
-    </div>
-  );
-
-  // Main page for RETURNING users
-  const renderReturningUserHome = () => (
-    <div className="page home-page returning-user fade-in">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">{t('app.goodMorning')}, {session?.username || 'User'}</h1>
-          <p className="page-subtitle">{t('app.readyToAutomate')}</p>
-        </div>
-        <div className="flex-row" style={{ gap: '8px', alignItems: 'center' }}>
-          <button
-            className="btn-icon"
-            title="Help"
-            onClick={() => navigate("docs", { topicId: "overview-getting-started" })}
-          >
-            <Icon name="book" size={24} />
-          </button>
-          <button
-            className="btn-icon"
-            title="Memory Explorer"
-            onClick={() => navigate("memory")}
-          >
-            <Icon name="database" size={24} />
-          </button>
-          <button
-            className="btn-icon"
-            title="Settings"
-            onClick={() => navigate("settings")}
-          >
-            <Icon name="settings" size={24} />
-          </button>
-        </div>
-      </div>
-
-      <div className="home-content">
-        {/* Quick Start Section */}
-        <div className="card" style={{ padding: '24px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>{t('app.createNewWorkflow')}</h2>
-            <p style={{ margin: 0 }}>{t('app.recordDesc')}</p>
-          </div>
-          <div className="flex-row" style={{ gap: '12px' }}>
-            <button className="btn btn-primary" onClick={() => navigate("quick-start")} style={{ minWidth: '140px', justifyContent: 'center' }}>
-              <Icon name="record" size={18} />
-              <span>{t('app.startRecording')}</span>
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={handleOpenBrowser}
-              disabled={browserOpening}
-              style={{ minWidth: '140px', justifyContent: 'center' }}
-            >
-              <Icon name="browser" size={18} />
-              <span>{browserOpening ? t('app.opening') : t('app.openBrowser')}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Recent Workflows Section */}
-        <div className="recent-section">
-          <div className="flex-row" style={{ justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
-            <h3 style={{ margin: 0 }}>{t('app.recentWorkflows')}</h3>
-            <a style={{ color: 'var(--primary-main)', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }} onClick={() => navigate("workflows")}>
-              {t('app.viewAll')}
-            </a>
-          </div>
-
-          <div className="recent-workflows flex-col" style={{ gap: '12px' }}>
-            {recentWorkflows.map((workflow) => (
-              <div key={workflow.id} className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: 'var(--radius-lg)' }}>
-                <div className="flex-row" style={{ gap: '16px', alignItems: 'center' }}>
-                  <div style={{
-                    width: '40px', height: '40px',
-                    borderRadius: '50%',
-                    backgroundColor: workflow.status === "success" ? 'var(--status-success-bg)' : 'var(--status-warning-bg)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: workflow.status === "success" ? 'var(--status-success-text)' : 'var(--status-warning-text)'
-                  }}>
-                    <Icon name={workflow.status === "success" ? "check" : "alert"} size={20} />
-                  </div>
-                  <div>
-                    <h4 style={{ fontSize: '16px', margin: '0 0 4px 0' }}>{workflow.name}</h4>
-                    <p style={{ fontSize: '13px', margin: 0 }}>
-                      Last run: {workflow.lastRun}
-                    </p>
-                    <p style={{ fontSize: '12px', margin: 0, color: 'var(--text-tertiary)' }}>
-                      Created: {workflow.createdDate}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex-row" style={{ gap: '8px' }}>
-                  <button className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px' }} onClick={() => navigate("workflow-detail", { workflowId: workflow.id })}>
-                    <Icon name="play" size={14} />
-                    <span>{t('common.run')}</span>
-                  </button>
-                  <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }} onClick={() => navigate("workflow-detail", { workflowId: workflow.id })}>
-                    <span>{t('common.details')}</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-            {recentWorkflows.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
-                {t('app.noRecentWorkflows')}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   // Main page - New HomePage (chat-style dashboard)
   const renderMainPage = () => {
@@ -728,144 +493,12 @@ function App() {
       case "main":
         return renderMainPage();
 
-      case "replay":
-        return (
-          <RecordingReplayPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            navigationData={pageParams}
-          />
-        );
-
-      case "quick-start":
-        return (
-          <QuickStartPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            version={versionInfo?.version || '1.0.0'}
-          />
-        );
-
-      case "generation":
-        return (
-          <GenerationPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            params={pageParams}
-            version={versionInfo?.version || '1.0.0'}
-          />
-        );
-
       case "explore":
         return (
           <ExplorePage
             session={session}
             onNavigate={navigate}
             showStatus={showStatus}
-          />
-        );
-
-      case "workflows":
-        return (
-          <ExplorePage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-          />
-        );
-
-      case "workflow-detail":
-        return (
-          <WorkflowDetailPage
-            session={session}
-            workflowId={pageParams.workflowId}
-            autoRun={pageParams.autoRun}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            onLogout={() => { }}
-            pageData={pageParams}
-            version={versionInfo?.version || '1.0.0'}
-          />
-        );
-
-      case "workflow-result":
-        return (
-          <WorkflowResultPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            recordingData={pageParams.recordingData}
-            version={versionInfo?.version || '1.0.0'}
-          />
-        );
-
-      case "workflow-generation":
-        return (
-          <WorkflowGenerationPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            recordingData={pageParams}
-            version={versionInfo?.version || '1.0.0'}
-          />
-        );
-
-      case "execution-monitor":
-        return (
-          <ExecutionMonitorPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            workflowId={pageParams.workflowId}
-            workflowName={pageParams.workflowName}
-            initialStatus={pageParams.status}
-            initialSteps={pageParams.steps}
-          />
-        );
-
-      case "execution-result":
-        return (
-          <ExecutionResultPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            workflowId={pageParams.workflowId}
-            taskId={pageParams.taskId}
-          />
-        );
-
-      case "workflow-execution-live":
-        return (
-          <WorkflowExecutionLivePage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            taskId={pageParams.taskId}
-            workflowName={pageParams.workflowName}
-          />
-        );
-
-      case "recordings-library":
-        return (
-          <RecordingsLibraryPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            version={versionInfo?.version || '1.0.0'}
-          />
-        );
-
-      case "recording-detail":
-        return (
-          <RecordingDetailPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
-            sessionId={pageParams.sessionId}
-            version={versionInfo?.version || '1.0.0'}
           />
         );
 
@@ -903,17 +536,6 @@ function App() {
           />
         );
 
-      // metaflow-preview route removed - redirect to workflow-detail
-      // MetaFlow is now internal, users work with Workflows directly
-      case "metaflow-preview":
-        // Legacy route - redirect to workflows list
-        console.warn('[App] metaflow-preview route is deprecated, redirecting to workflows');
-        navigate("workflows");
-        return null;
-
-      // data-management and collection-detail removed
-      // Data is now per-workflow, see WorkflowDetailPage "Data" tab
-
       case "docs":
         return (
           <DocsPage
@@ -922,16 +544,6 @@ function App() {
             onNavigate={navigate}
             showStatus={showStatus}
             topicId={pageParams.topicId}
-            version={versionInfo?.version || '1.0.0'}
-          />
-        );
-
-      case "agent":
-        return (
-          <AgentPage
-            session={session}
-            onNavigate={navigate}
-            showStatus={showStatus}
             version={versionInfo?.version || '1.0.0'}
           />
         );
@@ -959,12 +571,6 @@ function App() {
 
   // Bottom navigation bar - 4-tab design: Ami, Browser, Memories, Explore
   const renderBottomNav = () => {
-    // Hide navigation on certain pages
-    const hideNavPages = ["quick-start", "execution-monitor", "execution-result", "workflow-execution-live"];
-    if (hideNavPages.includes(currentPage)) {
-      return null;
-    }
-
     const navItems = [
       { id: "main", icon: "robot", label: "Ami" },
       { id: "browser", icon: "globe", label: "Browser" },
@@ -1013,7 +619,7 @@ function App() {
       )}
 
       {/* Page Content */}
-      <div className={`app-content ${["main", "agent", "workflow-execution-live", "browser"].includes(currentPage) ? 'full-width-page' : ''}`}>
+      <div className={`app-content ${["main", "browser"].includes(currentPage) ? 'full-width-page' : ''}`}>
         {renderPage()}
       </div>
 

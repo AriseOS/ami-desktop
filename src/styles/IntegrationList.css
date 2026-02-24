@@ -1,0 +1,447 @@
+/* IntegrationList Component Styles */
+
+.integration-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.integration-list.loading {
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-8) 0;
+    color: var(--text-secondary);
+    gap: var(--space-3);
+}
+
+/* List Header */
+.integration-list .list-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+
+.integration-list .header-icon {
+    font-size: 20px;
+}
+
+.integration-list .header-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.integration-list .header-count {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+/* Error Message */
+.integration-list .error-message {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--status-error-bg);
+    color: var(--status-error-text);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+}
+
+.integration-list .error-message button {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--status-error-text);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    opacity: 0.7;
+    transition: opacity var(--transition-fast);
+}
+
+.integration-list .error-message button:hover {
+    opacity: 1;
+}
+
+/* Integrations Grid */
+.integrations-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+/* Integration Card */
+.integration-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.integration-card:hover {
+    border-color: var(--color-gray-300);
+}
+
+.integration-card.installed {
+    border-color: var(--color-primary-200);
+    background: var(--color-primary-50);
+}
+
+/* Card Header */
+.integration-card .card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+}
+
+.integration-card .card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.integration-card .card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.integration-card .card-name {
+    margin: 0 0 2px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.integration-card .card-description {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.integration-card .card-status {
+    flex-shrink: 0;
+}
+
+/* Status Badge */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--bg-tertiary);
+    color: var(--text-tertiary);
+}
+
+.status-badge.installed {
+    background: var(--status-success-bg);
+    color: var(--status-success-text);
+}
+
+/* Status Dot (compact mode) */
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-gray-300);
+    flex-shrink: 0;
+}
+
+.status-dot.installed {
+    background: var(--status-success-text);
+}
+
+/* Features Section */
+.integration-card .card-features {
+    margin-top: var(--space-3);
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--space-3);
+}
+
+.integration-card .features-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: var(--space-1) 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.integration-card .features-toggle:hover {
+    color: var(--text-primary);
+}
+
+.integration-card .features-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-2) 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.integration-card .features-list li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.integration-card .features-list li svg {
+    color: var(--status-success-text);
+    flex-shrink: 0;
+}
+
+/* Card Actions */
+.integration-card .card-actions {
+    margin-top: var(--space-3);
+    display: flex;
+    gap: var(--space-2);
+}
+
+/* Spinner Small */
+.spinner-sm {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spinnerSm 0.6s linear infinite;
+}
+
+@keyframes spinnerSm {
+    to { transform: rotate(360deg); }
+}
+
+/* Compact Card */
+.integration-card.compact {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+}
+
+.integration-card.compact .card-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+}
+
+.integration-card.compact .card-name {
+    flex: 1;
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Configuration Dialog */
+.config-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: configDialogFadeIn 0.2s ease-out;
+}
+
+@keyframes configDialogFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.config-dialog {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    width: 90%;
+    max-width: 480px;
+    box-shadow: var(--shadow-float);
+    animation: configDialogSlideUp 0.2s ease-out;
+    overflow: hidden;
+}
+
+@keyframes configDialogSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.config-dialog .dialog-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-5) var(--space-5) 0;
+}
+
+.config-dialog .dialog-icon {
+    font-size: 24px;
+}
+
+.config-dialog .dialog-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.config-dialog .close-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    transition: color var(--transition-fast);
+}
+
+.config-dialog .close-btn:hover {
+    color: var(--text-primary);
+}
+
+.config-dialog .dialog-body {
+    padding: var(--space-4) var(--space-5);
+}
+
+.config-dialog .dialog-body .error-message {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--status-error-bg);
+    color: var(--status-error-text);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    margin-bottom: var(--space-4);
+}
+
+.config-dialog .form-group {
+    margin-bottom: var(--space-4);
+}
+
+.config-dialog .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-1);
+}
+
+.config-dialog .form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.config-dialog .form-group input:focus {
+    outline: none;
+    border-color: var(--primary-main);
+    box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.config-dialog .help-text {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: 12px;
+    color: var(--text-tertiary);
+}
+
+.config-dialog .help-section {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+}
+
+.config-dialog .help-section h4 {
+    margin: 0 0 var(--space-3) 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.config-dialog .help-section ol {
+    margin: 0;
+    padding-left: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.config-dialog .help-section li {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.config-dialog .help-section a {
+    color: var(--primary-main);
+    text-decoration: none;
+}
+
+.config-dialog .help-section a:hover {
+    text-decoration: underline;
+}
+
+.config-dialog .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5) var(--space-5);
+}
+
+/* Integration Status Bar (compact inline display) */
+.integration-status-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.integration-status-bar .status-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+.integration-status-bar .status-item {
+    font-size: 16px;
+    cursor: default;
+}
