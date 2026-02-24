@@ -124,7 +124,7 @@ async function _doRefresh(): Promise<string | null> {
   const apiUrl = getConfig().cloud.api_url;
   const url = `${apiUrl}/api/v1/auth/refresh`;
 
-  logger.info("Refreshing access token...");
+  logger.info({ url }, "Refreshing access token...");
 
   try {
     const resp = await fetch(url, {
