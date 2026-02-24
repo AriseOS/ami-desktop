@@ -2,7 +2,7 @@
   "name": "ami-desktop",
   "productName": "Ami",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.6.1",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
