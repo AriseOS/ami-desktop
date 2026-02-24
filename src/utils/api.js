@@ -2,8 +2,8 @@
  * API Client with Auto-injected JWT Auth
  * All requests go through daemon-ts (localhost), which proxies to Cloud Backend.
  *
- * Auth: JWT access token + refresh token, proxied via daemon /api/v1/auth/*
- * All calls: Bearer token auto-injected, auto-refresh on 401
+ * Auth: JWT tokens managed by daemon. Frontend fetches token on demand via GET /auth/token.
+ * All calls: Bearer token auto-injected from daemon-backed auth.getToken()
  */
 
 import { auth } from './auth';
@@ -264,49 +264,6 @@ export const api = {
   },
 
   /**
-   * Fetch LLM credentials from Cloud Backend and store in daemon settings.
-   * Called after login/register to provision the daemon with sub2api API key.
-   *
-   * @returns {Promise<boolean>} True if credentials were stored successfully
-   */
-  async fetchAndStoreLLMCredentials() {
-    try {
-      const token = await auth.getToken();
-      if (!token) {
-        console.warn('[API] No token available, skipping LLM credentials fetch');
-        return false;
-      }
-
-      console.log('[API] Fetching LLM credentials from Cloud Backend...');
-      const response = await fetch(`${getBackendBase()}/api/v1/auth/credentials`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` },
-        signal: AbortSignal.timeout(10_000),
-      });
-
-      if (!response.ok) {
-        console.warn('[API] Failed to fetch LLM credentials:', response.status);
-        return false;
-      }
-
-      const { api_key } = await response.json();
-      if (!api_key) {
-        console.warn('[API] No API key in credentials response');
-        return false;
-      }
-
-      // Store as anthropic credentials in daemon settings
-      await this.setCredentials('anthropic', { api_key });
-
-      console.log('[API] LLM credentials stored in daemon settings');
-      return true;
-    } catch (error) {
-      console.error('[API] Failed to fetch/store LLM credentials:', error);
-      return false;
-    }
-  },
-
-  /**
    * Get user's quota status
    *
    * @returns {Promise<object>} Quota status
@@ -316,57 +273,20 @@ export const api = {
     return null;
   },
 
-  /**
-   * Refresh JWT access token using refresh token.
-   * Called automatically by callAppBackend on 401.
-   *
-   * @returns {Promise<boolean>} True if refresh succeeded
-   */
-  async _refreshToken() {
-    try {
-      const refreshToken = await auth.getRefreshToken();
-      if (!refreshToken) {
-        console.warn('[API] No refresh token available');
-        return false;
-      }
-
-      console.log('[API] Refreshing JWT token...');
-      const response = await fetch(`${getBackendBase()}/api/v1/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken })
-      });
-
-      if (!response.ok) {
-        console.warn('[API] Token refresh failed:', response.status);
-        return false;
-      }
-
-      const result = await response.json();
-      await auth.updateTokens(result.access_token, result.refresh_token);
-      console.log('[API] Token refreshed successfully');
-      return true;
-    } catch (error) {
-      console.error('[API] Token refresh error:', error);
-      return false;
-    }
-  },
-
   // ============================================================================
-  // App Backend APIs (with auto-injected API key)
+  // App Backend APIs (with auto-injected JWT token)
   // ============================================================================
 
   /**
    * Call App Backend with auto-injected Authorization header.
    *
-   * On 401 response, automatically attempts token refresh and retries once.
+   * Token refresh is handled by the daemon internally, so no 401 retry here.
    *
    * @param {string} endpoint - API endpoint path (e.g., "/api/browser/start")
    * @param {object} options - Fetch options (method, body, headers, etc.)
-   * @param {boolean} _isRetry - Internal flag to prevent infinite retry loops
    * @returns {Promise<any>} Response data
    */
-  async callAppBackend(endpoint, options = {}, _isRetry = false) {
+  async callAppBackend(endpoint, options = {}) {
     try {
       const token = await auth.getToken();
 
@@ -383,14 +303,6 @@ export const api = {
         ...options,
         headers
       });
-
-      // Auto-refresh on 401 (token expired)
-      if (response.status === 401 && !_isRetry) {
-        const refreshed = await this._refreshToken();
-        if (refreshed) {
-          return await this.callAppBackend(endpoint, options, true);
-        }
-      }
 
       if (!response.ok) {
         let errorMessage;

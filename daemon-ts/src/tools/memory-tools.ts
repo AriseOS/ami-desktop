@@ -12,6 +12,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type { SSEEmitter } from "../events/emitter.js";
 import { Action } from "../events/types.js";
+import { getAuthToken } from "../services/auth-manager.js";
 import { createLogger } from "../utils/logging.js";
 
 const logger = createLogger("memory-tools");
@@ -109,14 +110,15 @@ async function memoryPost(
   baseUrl: string,
   path: string,
   body: Record<string, unknown>,
-  authToken?: string,
 ): Promise<unknown> {
   const url = `${baseUrl}${path}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (authToken) {
-    headers["Authorization"] = `Bearer ${authToken}`;
+
+  const token = await getAuthToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const resp = await fetch(url, {
@@ -226,18 +228,15 @@ export function getTaskMemoryLevel(
 
 export class MemoryToolkit {
   private baseUrl: string;
-  private authToken?: string;
   private taskId: string;
   private emitter?: SSEEmitter;
 
   constructor(opts: {
     memoryApiBaseUrl: string;
-    authToken?: string;
     taskId: string;
     emitter?: SSEEmitter;
   }) {
     this.baseUrl = opts.memoryApiBaseUrl;
-    this.authToken = opts.authToken;
     this.taskId = opts.taskId;
     this.emitter = opts.emitter;
   }
@@ -259,7 +258,6 @@ export class MemoryToolkit {
         this.baseUrl,
         "/api/v1/memory/query",
         { query: task, query_type: "task", top_k: 5 },
-        this.authToken,
       )) as QueryResult;
 
       this.emitter?.emit({
@@ -294,7 +292,6 @@ export class MemoryToolkit {
           start_state: startState,
           end_state: endState,
         },
-        this.authToken,
       )) as QueryResult;
     } catch (err) {
       logger.error({ err }, "Navigation memory query failed");
@@ -317,7 +314,6 @@ export class MemoryToolkit {
           query_type: "actions",
           target,
         },
-        this.authToken,
       )) as QueryResult;
     } catch (err) {
       logger.error({ err }, "Action memory query failed");
@@ -333,7 +329,6 @@ export class MemoryToolkit {
         this.baseUrl,
         "/api/v1/memory/plan",
         { task },
-        this.authToken,
       )) as MemoryPlanResult;
     } catch (err) {
       logger.error({ err }, "Memory plan request failed");
@@ -394,7 +389,6 @@ export class MemoryToolkit {
 
 export function createMemoryTools(opts: {
   memoryApiBaseUrl: string;
-  authToken?: string;
   taskId: string;
   emitter?: SSEEmitter;
 }): { toolkit: MemoryToolkit; tools: AgentTool<any>[] } {

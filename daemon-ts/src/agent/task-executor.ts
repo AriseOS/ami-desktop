@@ -33,7 +33,8 @@ import type { SSEEmitter } from "../events/emitter.js";
 import { REPLAN_INSTRUCTION } from "../prompts/task-decomposition.js";
 import { createReplanTools } from "../tools/replan-tools.js";
 import { ExecutionDataCollector } from "./execution-data-collector.js";
-import { getCloudClient, type RequestCredentials } from "../services/cloud-client.js";
+import { getCloudClient } from "../services/cloud-client.js";
+import { hasSession } from "../services/auth-manager.js";
 import { agentPrompt, requireApiKey, debugStreamSimple } from "../utils/agent-helpers.js";
 import { createLogger } from "../utils/logging.js";
 import { BehaviorRecorder } from "../browser/behavior-recorder.js";
@@ -82,7 +83,6 @@ export class AMITaskExecutor implements TaskExecutorLike {
   readonly taskLabel: string;
   private emitter?: SSEEmitter;
   private apiKey?: string;
-  private authToken?: string;
   private userRequest: string;
   private maxRetries: number;
   private maxTurnsPerSubtask: number;
@@ -117,7 +117,6 @@ export class AMITaskExecutor implements TaskExecutorLike {
     taskId: string;
     emitter?: SSEEmitter;
     apiKey?: string;
-    authToken?: string;
     agentTools: Map<string, AgentTool<any>[]>;
     systemPrompts: Map<string, string>;
     maxRetries?: number;
@@ -132,7 +131,6 @@ export class AMITaskExecutor implements TaskExecutorLike {
     this.taskId = opts.taskId;
     this.emitter = opts.emitter;
     this.apiKey = opts.apiKey;
-    this.authToken = opts.authToken;
     this.agentTools = opts.agentTools;
     this.systemPrompts = opts.systemPrompts;
     this.maxRetries = opts.maxRetries ?? 2;
@@ -1106,14 +1104,14 @@ No historical workflow guide available. Please explore and complete the task usi
    *
    * Conditions (matching Python _should_trigger_learning):
    * - Execution was not stopped/cancelled
-   * - authToken is available (authenticated user)
+   * - User session is active (daemon has auth tokens)
    * - At least 1 browser subtask
    * - Total subtask count >= 2
    * - All browser subtasks succeeded
    */
   private shouldTriggerLearning(): boolean {
     if (this._stopped) return false;
-    if (!this.authToken) return false;
+    if (!hasSession()) return false;
 
     const browserSubtasks = this._subtasks.filter(
       (s) => s.agentType === "browser",
@@ -1144,14 +1142,11 @@ No historical workflow guide available. Please explore and complete the task usi
     );
 
     const payload = ExecutionDataCollector.toDict(taskData);
-    const creds: RequestCredentials = {
-      token: this.authToken,
-    };
 
     try {
+      // CloudClient auto-injects daemon-managed token
       const result = (await getCloudClient().memoryLearn(
         { execution_data: payload },
-        creds,
       )) as Record<string, unknown>;
 
       logger.info(
@@ -1220,8 +1215,8 @@ No historical workflow guide available. Please explore and complete the task usi
     recorder: BehaviorRecorder,
     subtask: AMISubtask,
   ): Promise<void> {
-    if (!this.authToken) {
-      logger.debug("[OnlineLearning] No authToken, skipping memory save");
+    if (!hasSession()) {
+      logger.debug("[OnlineLearning] No session, skipping memory save");
       return;
     }
 
@@ -1237,10 +1232,7 @@ No historical workflow guide available. Please explore and complete the task usi
         "[OnlineLearning] Saving operations to memory",
       );
 
-      const creds: RequestCredentials = {
-        token: this.authToken,
-      };
-
+      // CloudClient auto-injects daemon-managed token
       const result = await getCloudClient().memoryAdd(
         {
           operations,
@@ -1248,7 +1240,6 @@ No historical workflow guide available. Please explore and complete the task usi
           generate_embeddings: true,
           skip_cognitive_phrase: true,
         },
-        creds,
       );
 
       logger.info({ result }, "[OnlineLearning] Memory save result");

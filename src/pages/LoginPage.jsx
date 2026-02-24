@@ -40,18 +40,14 @@ function LoginPage({ navigate, showStatus, onLoginSuccess }) {
         throw new Error('Invalid response from server');
       }
 
-      console.log('[LoginPage] Login successful, saving session');
+      console.log('[LoginPage] Login successful, saving UI metadata');
 
+      // Daemon already stored tokens + fetched LLM credentials (intercepted during login proxy)
       await auth.saveSession(
-        result.access_token,
-        result.refresh_token,
         result.user.username,
         result.user.email || '',
         result.user
       );
-
-      // Fetch and store LLM credentials (sub2api key) in daemon
-      await api.fetchAndStoreLLMCredentials();
 
       showStatus(t('auth.toasts.loginSuccess'), 'success');
 

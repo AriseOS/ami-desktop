@@ -31,7 +31,6 @@ const activeSessions = new Map<string, OrchestratorSession>();
  */
 export async function executeTaskPipeline(
   state: TaskState,
-  opts?: { authToken?: string },
 ): Promise<void> {
   const { taskId, task, emitter } = state;
 
@@ -56,12 +55,10 @@ export async function executeTaskPipeline(
     user_id: state.userId,
   });
 
-  const authToken = opts?.authToken;
-
   // Create orchestrator session with real tool factory
+  // Auth tokens are managed by auth-manager (daemon is single source of truth)
   const session = new OrchestratorSession({
     taskId,
-    authToken,
     emitter,
     taskState: state,
     workspaceDir: workingDir,
@@ -70,7 +67,6 @@ export async function executeTaskPipeline(
         workingDir: workingDirOverride ?? workingDir,
         taskId,
         taskState: state,
-        authToken,
         emitter,
       }),
   });

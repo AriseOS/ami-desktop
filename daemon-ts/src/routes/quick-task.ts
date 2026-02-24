@@ -39,15 +39,13 @@ quickTaskRouter.post("/execute", (req: Request, res: Response) => {
   }
 
   const taskId = uuid().slice(0, 8);
-  const authHeader = req.headers["authorization"] as string | undefined;
-  const authToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
 
   const state = taskRegistry.create(taskId, task);
 
   logger.info({ taskId, task: task.slice(0, 100) }, "Task submitted");
 
-  // Start execution in background
-  executeTaskPipeline(state, { authToken }).catch((err) => {
+  // Start execution in background (daemon manages auth tokens internally)
+  executeTaskPipeline(state).catch((err) => {
     logger.error({ taskId, err }, "Task execution failed");
   });
 

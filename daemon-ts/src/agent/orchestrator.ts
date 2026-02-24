@@ -537,7 +537,6 @@ export class OrchestratorSession {
   readonly taskState: TaskState;
   private emitter: SSEEmitter;
   private apiKey?: string;
-  private authToken?: string;
   private workspaceDir: string;
 
   // Agent
@@ -561,7 +560,6 @@ export class OrchestratorSession {
     taskState: TaskState;
     emitter: SSEEmitter;
     apiKey?: string;
-    authToken?: string;
     workspaceDir?: string;
     childAgentToolsFactory?: (
       agentType: AgentType,
@@ -573,7 +571,6 @@ export class OrchestratorSession {
     this.taskState = opts.taskState;
     this.emitter = opts.emitter;
     this.apiKey = opts.apiKey;
-    this.authToken = opts.authToken;
     this.workspaceDir =
       opts.workspaceDir ?? process.env.HOME + "/.ami/workspace";
     this.childAgentToolsFactory = opts.childAgentToolsFactory;
@@ -942,7 +939,6 @@ export class OrchestratorSession {
         taskId: this.taskId,
         emitter: this.emitter,
         apiKey: this.apiKey,
-        authToken: this.authToken,
         memoryApiBaseUrl: getConfig().cloud.api_url,
       });
 
@@ -1053,7 +1049,6 @@ export class OrchestratorSession {
       taskId: this.taskId,
       emitter: this.emitter,
       apiKey: this.apiKey,
-      authToken: this.authToken,
       agentTools,
       systemPrompts,
       userRequest: taskDescription,

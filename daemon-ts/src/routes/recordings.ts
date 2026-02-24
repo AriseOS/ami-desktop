@@ -516,19 +516,13 @@ recordingsRouter.post(
   "/:sessionId/analyze",
   async (req: Request, res: Response) => {
     const { sessionId } = req.params;
-    const authHeader = req.headers["authorization"] as string | undefined;
-    const authToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
     const { user_id } = req.body;
     const userId = user_id ?? "default";
 
-    if (!authToken) {
-      res.status(401).json({ error: "Authorization Bearer token required" });
-      return;
-    }
-
     try {
       const client = getCloudClient();
-      const result = await client.analyzeRecording(sessionId, userId, { token: authToken });
+      // CloudClient auto-injects daemon-managed token
+      const result = await client.analyzeRecording(sessionId, userId);
       res.json(result);
     } catch (err) {
       res.status(500).json({ error: String(err) });

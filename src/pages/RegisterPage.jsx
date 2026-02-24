@@ -91,18 +91,14 @@ function RegisterPage({ navigate, showStatus, onRegisterSuccess }) {
         throw new Error('Invalid response from server');
       }
 
-      console.log('[RegisterPage] Registration successful, saving session');
+      console.log('[RegisterPage] Registration successful, saving UI metadata');
 
+      // Daemon already stored tokens + fetched LLM credentials (intercepted during register proxy)
       await auth.saveSession(
-        result.access_token,
-        result.refresh_token,
         result.user.username,
         email,
         result.user
       );
-
-      // Fetch and store LLM credentials (sub2api key) in daemon
-      await api.fetchAndStoreLLMCredentials();
 
       showStatus(t('auth.toasts.registerSuccess'), 'success');
 

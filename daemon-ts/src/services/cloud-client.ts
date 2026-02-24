@@ -9,6 +9,7 @@
 
 import { createLogger } from "../utils/logging.js";
 import { getConfig } from "../utils/config.js";
+import { getAuthToken } from "./auth-manager.js";
 
 const logger = createLogger("cloud-client");
 
@@ -44,8 +45,14 @@ export class CloudClient {
       ...extraHeaders,
     };
 
-    if (creds?.token) {
-      headers["Authorization"] = `Bearer ${creds.token}`;
+    // Resolve token: explicit creds > daemon-managed token
+    const usingDaemonToken = !creds?.token;
+    let token = creds?.token;
+    if (!token) {
+      token = (await getAuthToken()) ?? undefined;
+    }
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
     logger.debug({ method, path }, "Cloud API request");
@@ -56,6 +63,27 @@ export class CloudClient {
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs ?? this.timeout),
     });
+
+    // Auto-retry on 401 when using daemon-managed token (token may have been refreshed)
+    if (resp.status === 401 && usingDaemonToken) {
+      logger.info({ method, path }, "Got 401, attempting token refresh and retry");
+      const freshToken = await getAuthToken();
+      if (freshToken && freshToken !== token) {
+        headers["Authorization"] = `Bearer ${freshToken}`;
+        const retryResp = await fetch(url, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+          signal: AbortSignal.timeout(timeoutMs ?? this.timeout),
+        });
+        if (retryResp.ok) {
+          const ct = retryResp.headers.get("content-type") ?? "";
+          return ct.includes("application/json") ? retryResp.json() : retryResp.text();
+        }
+        const text = await retryResp.text().catch(() => "");
+        throw new Error(`Cloud API error ${retryResp.status} ${method} ${path}: ${text}`);
+      }
+    }
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
@@ -204,7 +232,10 @@ export class CloudClient {
   async intentBuilderStream(sessionId: string, creds?: RequestCredentials): Promise<Response> {
     const url = `${this.baseUrl}/api/v1/intent-builder/sessions/${sessionId}/stream`;
     const headers: Record<string, string> = {};
-    if (creds?.token) headers["Authorization"] = `Bearer ${creds.token}`;
+
+    // Resolve token: explicit creds > daemon-managed token
+    const token = creds?.token ?? (await getAuthToken());
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
     // SSE streams are long-lived — use 10 min timeout instead of the default 30s
     return fetch(url, {

@@ -118,11 +118,10 @@ export function createChildAgentTools(
     taskId: string;
     taskState: TaskState;
     apiKey?: string;
-    authToken?: string;
     emitter?: SSEEmitter;
   },
 ): AgentTool<any>[] {
-  const { workingDir, taskId, taskState, apiKey, authToken, emitter } = opts;
+  const { workingDir, taskId, taskState, apiKey, emitter } = opts;
 
   // Common tools shared by all agent types
   const fileTools = createFileTools({ workingDir, taskId, emitter });
@@ -136,7 +135,6 @@ export function createChildAgentTools(
       const markItDownTools = createMarkItDownTools({ workingDir });
       const { tools: memoryTools } = createMemoryTools({
         memoryApiBaseUrl: getConfig().cloud.api_url,
-        authToken,
         taskId,
         emitter,
       });
