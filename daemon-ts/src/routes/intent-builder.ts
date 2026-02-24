@@ -22,6 +22,18 @@ function getCredentials(req: Request): RequestCredentials {
   return { token };
 }
 
+/**
+ * Extract HTTP status code from CloudClient error messages.
+ * CloudClient throws: "Cloud API error 401 GET /path: ..."
+ */
+function getErrorStatus(err: unknown): number {
+  if (err instanceof Error) {
+    const match = err.message.match(/Cloud API error (\d{3})/);
+    if (match) return parseInt(match[1], 10);
+  }
+  return 500;
+}
+
 // ===== POST /sessions =====
 
 intentBuilderRouter.post("/sessions", async (req: Request, res: Response) => {
@@ -31,7 +43,7 @@ intentBuilderRouter.post("/sessions", async (req: Request, res: Response) => {
     const result = await client.createIntentBuilderSession(req.body, creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -105,10 +117,14 @@ intentBuilderRouter.get(
 intentBuilderRouter.post(
   "/sessions/:sessionId/chat",
   async (req: Request, res: Response) => {
+    const { message } = req.body;
+    if (!message || typeof message !== "string") {
+      res.status(400).json({ error: "message field is required" });
+      return;
+    }
     try {
       const client = getCloudClient();
       const creds = getCredentials(req);
-      const { message } = req.body;
       const result = await client.intentBuilderChat(
         req.params.sessionId,
         message,
@@ -116,7 +132,7 @@ intentBuilderRouter.post(
       );
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(getErrorStatus(err)).json({ error: String(err) });
     }
   },
 );
@@ -132,7 +148,7 @@ intentBuilderRouter.get(
       const result = await client.getIntentBuilderState(req.params.sessionId, creds);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(getErrorStatus(err)).json({ error: String(err) });
     }
   },
 );
@@ -151,7 +167,7 @@ intentBuilderRouter.delete(
       );
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(getErrorStatus(err)).json({ error: String(err) });
     }
   },
 );
