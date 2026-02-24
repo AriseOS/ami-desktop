@@ -39,7 +39,11 @@ const logger = createLogger("server");
 
 // ===== Constants =====
 
-const APP_VERSION = "0.3.0";
+// Single source of truth: read version from daemon-ts/package.json
+// import.meta.dirname = daemon-ts/dist/, so ".." = daemon-ts/
+const APP_VERSION: string = JSON.parse(
+  readFileSync(join(import.meta.dirname, "..", "package.json"), "utf-8"),
+).version;
 const DAEMON_MAGIC = `ami-daemon-${APP_VERSION}`;
 const AMI_DIR = join(homedir(), ".ami");
 const PORT_FILE = join(AMI_DIR, "daemon.port");
