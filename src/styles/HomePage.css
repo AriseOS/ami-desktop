@@ -379,6 +379,43 @@
   min-width: 0;
 }
 
+.home-page-v2 .message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  max-width: 85%;
+}
+
+.home-page-v2 .message-attachments .file-attachment-card {
+  width: fit-content;
+  min-width: 200px;
+  max-width: 320px;
+  border-radius: 12px;
+  border-color: var(--border-subtle, #e0e0e0);
+  background: var(--bg-surface, #fff);
+  margin: 0;
+}
+
+.home-page-v2 .message-attachments .file-card-header {
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+.home-page-v2 .message-attachments .file-card-name {
+  font-size: 13px;
+}
+
+.home-page-v2 .message-attachments .file-card-meta {
+  font-size: 11px;
+}
+
+.home-page-v2 .message-attachments .file-action-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
 .home-page-v2 .sender-name-line {
   margin-left: 38px;
   margin-bottom: 2px;
