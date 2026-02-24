@@ -41,16 +41,7 @@ llm:
   # Use CRS (Claude Relay Service) for all LLM calls
   # Migration: Changed from old API Proxy to CRS
   use_proxy: true
-  proxy_url: http://localhost:8080  # sub2api LLM gateway (no /api prefix — gateway routes are at /v1/messages)
-
-# Embedding Service Configuration
-# Used for semantic search in Personal Memory
-# Note: API key is provided per-request via user's cr_xxx key
-embedding:
-  provider: openai  # OpenAI-compatible API format
-  model: BAAI/bge-m3
-  dimension: 1024
-  base_url: https://api.ariseos.com/openai/v1  # CRS OpenAI-compatible endpoint
+  proxy_url: https://llm.ariseos.com # sub2api LLM gateway (no /api prefix — gateway routes are at /v1/messages)
 
 # Personal Memory Configuration
 # Local graph database for storing user's operation knowledge
