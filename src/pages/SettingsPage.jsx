@@ -283,16 +283,12 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
                 <span className="info-label">{t('settings.username')}:</span>
                 <span className="info-value">{session?.username || 'N/A'}</span>
               </div>
-              <div className="info-row">
-                <span className="info-label">{t('settings.email')}:</span>
-                <span className="info-value">{session?.email || 'N/A'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">{t('settings.apiKey')}:</span>
-                <span className="info-value api-key" style={{ wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '12px' }}>
-                  {session?.apiKey || 'N/A'}
-                </span>
-              </div>
+              {session?.email && (
+                <div className="info-row">
+                  <span className="info-label">{t('settings.email')}:</span>
+                  <span className="info-value">{session.email}</span>
+                </div>
+              )}
               {session?.loginTimestamp && (
                 <div className="info-row">
                   <span className="info-label">{t('settings.lastLogin')}:</span>
