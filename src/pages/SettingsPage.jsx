@@ -11,14 +11,21 @@ import '../styles/SettingsPage.css';
 /**
  * Settings Page Component
  * Displays user account info, quota status, language selector, and logout option
+ * In local mode, shows API configuration instead of account/quota sections
  */
-function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChange }) {
+function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChange, isLocalMode, onExitLocalMode }) {
   const { t } = useTranslation();
   const [session, setSession] = useState(null);
   const [quota, setQuota] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Local mode API config state
+  const [localApiKey, setLocalApiKey] = useState('');
+  const [localBaseUrl, setLocalBaseUrl] = useState('');
+  const [localModel, setLocalModel] = useState('');
+  const [savingApiConfig, setSavingApiConfig] = useState(false);
 
   // Theme/appearance settings from store
   const appearance = useStore(settingsStore, (state) => state.appearance);
@@ -34,23 +41,67 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
 
   const loadData = async () => {
     try {
-      // Load session data
-      const sessionData = await auth.getSession();
-      setSession(sessionData);
+      if (isLocalMode) {
+        // Load current credentials for editing
+        try {
+          const creds = await api.getCredentials();
+          if (creds?.anthropic) {
+            setLocalApiKey(creds.anthropic.api_key || '');
+            setLocalBaseUrl(creds.anthropic.base_url || '');
+          }
+          // Load model from settings
+          const settings = await api.get('/api/v1/settings');
+          if (settings?.llm?.model) {
+            setLocalModel(settings.llm.model);
+          }
+        } catch (e) {
+          console.error('[SettingsPage] Failed to load local mode config:', e);
+        }
+      } else {
+        // Load session data
+        const sessionData = await auth.getSession();
+        setSession(sessionData);
 
-      // Load quota status
-      try {
-        const quotaData = await api.getQuotaStatus();
-        setQuota(quotaData);
-      } catch (quotaError) {
-        console.error('[SettingsPage] Failed to load quota:', quotaError);
-        // Don't fail the whole page if quota fails
+        // Load quota status
+        try {
+          const quotaData = await api.getQuotaStatus();
+          setQuota(quotaData);
+        } catch (quotaError) {
+          console.error('[SettingsPage] Failed to load quota:', quotaError);
+        }
       }
     } catch (error) {
       console.error('[SettingsPage] Failed to load data:', error);
       showStatus(`${t('settings.loadFailed')}: ${error.message}`, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveApiConfig = async () => {
+    if (!localApiKey.trim()) {
+      showStatus(t('auth.apiKeyRequired'), 'error');
+      return;
+    }
+
+    setSavingApiConfig(true);
+    try {
+      const credConfig = { api_key: localApiKey.trim() };
+      if (localBaseUrl.trim()) {
+        credConfig.base_url = localBaseUrl.trim();
+      }
+      await api.setCredentials('anthropic', credConfig);
+
+      if (localModel.trim()) {
+        await api.post('/api/v1/settings', { llm_model: localModel.trim() });
+      }
+
+      showStatus(t('settings.apiKeySaved'), 'success');
+    } catch (error) {
+      console.error('[SettingsPage] Failed to save API config:', error);
+      showStatus(`${t('settings.apiKeySaveFailed')}: ${error.message}`, 'error');
+    } finally {
+      setSavingApiConfig(false);
     }
   };
 
@@ -133,37 +184,129 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
           <h1 className="settings-title">{t('settings.title')}</h1>
         </div>
 
-        {/* Account Section */}
-        <section className="settings-section">
-          <h2 className="section-title">{t('settings.account')}</h2>
-          <div className="info-card">
-            <div className="info-row">
-              <span className="info-label">{t('settings.username')}:</span>
-              <span className="info-value">{session?.username || 'N/A'}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">{t('settings.email')}:</span>
-              <span className="info-value">{session?.email || 'N/A'}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">{t('settings.apiKey')}:</span>
-              <span className="info-value api-key" style={{ wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '12px' }}>
-                {session?.apiKey || 'N/A'}
-              </span>
-            </div>
-            {session?.loginTimestamp && (
-              <div className="info-row">
-                <span className="info-label">{t('settings.lastLogin')}:</span>
-                <span className="info-value">
-                  {new Date(session.loginTimestamp).toLocaleString()}
+        {/* Local Mode: API Configuration */}
+        {isLocalMode && (
+          <section className="settings-section">
+            <h2 className="section-title">{t('settings.apiConfig')}</h2>
+            <div className="info-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--status-success-bg)',
+                  color: 'var(--status-success-text)',
+                  fontSize: '12px',
+                  fontWeight: 600
+                }}>
+                  {t('auth.localModeActive')}
                 </span>
               </div>
-            )}
-          </div>
-          <button className="btn btn-danger" onClick={handleLogoutClick}>
-            <Icon icon="logOut" size={16} /> {t('settings.logout')}
-          </button>
-        </section>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
+                  {t('auth.apiKeyLabel')}
+                </label>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder={t('auth.apiKeyPlaceholder')}
+                  value={localApiKey}
+                  onChange={(e) => setLocalApiKey(e.target.value)}
+                  style={{ fontSize: '14px' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
+                  {t('auth.baseUrlLabel')}
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder={t('auth.baseUrlPlaceholder')}
+                  value={localBaseUrl}
+                  onChange={(e) => setLocalBaseUrl(e.target.value)}
+                  style={{ fontSize: '14px' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
+                  {t('auth.modelLabel')}
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder={t('auth.modelPlaceholder')}
+                  value={localModel}
+                  onChange={(e) => setLocalModel(e.target.value)}
+                  style={{ fontSize: '14px' }}
+                />
+              </div>
+
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveApiConfig}
+                disabled={savingApiConfig || !localApiKey.trim()}
+                style={{ marginTop: '4px' }}
+              >
+                {savingApiConfig ? (
+                  <>
+                    <div className="btn-spinner"></div>
+                    <span>{t('common.save')}</span>
+                  </>
+                ) : (
+                  <span>{t('common.save')}</span>
+                )}
+              </button>
+            </div>
+
+            <div style={{ marginTop: '12px' }}>
+              <a
+                className="auth-link"
+                onClick={onExitLocalMode}
+                style={{ cursor: 'pointer', fontSize: '14px', color: 'var(--primary-color)' }}
+              >
+                {t('settings.switchToCloud')}
+              </a>
+            </div>
+          </section>
+        )}
+
+        {/* Account Section (hidden in local mode) */}
+        {!isLocalMode && (
+          <section className="settings-section">
+            <h2 className="section-title">{t('settings.account')}</h2>
+            <div className="info-card">
+              <div className="info-row">
+                <span className="info-label">{t('settings.username')}:</span>
+                <span className="info-value">{session?.username || 'N/A'}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">{t('settings.email')}:</span>
+                <span className="info-value">{session?.email || 'N/A'}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">{t('settings.apiKey')}:</span>
+                <span className="info-value api-key" style={{ wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '12px' }}>
+                  {session?.apiKey || 'N/A'}
+                </span>
+              </div>
+              {session?.loginTimestamp && (
+                <div className="info-row">
+                  <span className="info-label">{t('settings.lastLogin')}:</span>
+                  <span className="info-value">
+                    {new Date(session.loginTimestamp).toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+            <button className="btn btn-danger" onClick={handleLogoutClick}>
+              <Icon icon="logOut" size={16} /> {t('settings.logout')}
+            </button>
+          </section>
+        )}
 
         {/* Language Section */}
         <section className="settings-section">
@@ -345,7 +488,8 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
           </div>
         </section>
 
-        {/* Quota Section */}
+        {/* Quota Section (hidden in local mode) */}
+        {!isLocalMode && (
         <section className="settings-section">
           <div className="section-header">
             <h2 className="section-title">{t('settings.quotaStatus')}</h2>
@@ -453,6 +597,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
             </div>
           )}
         </section>
+        )}
       </div>
 
       {/* Logout Confirmation Modal */}

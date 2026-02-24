@@ -335,7 +335,11 @@
         "logoutWarning": "You will need to login again to use the app.",
         "logoutSuccess": "Logged out successfully",
         "logoutFailed": "Failed to logout",
-        "loggedInAs": "Logged in as {{username}}"
+        "loggedInAs": "Logged in as {{username}}",
+        "apiConfig": "API Configuration",
+        "switchToCloud": "Switch to Cloud Mode",
+        "apiKeySaved": "API configuration saved",
+        "apiKeySaveFailed": "Failed to save API configuration"
     },
     "workflowExecution": {
         "connecting": "Connecting...",
@@ -647,7 +651,18 @@
             "loginFailed": "Login failed: {{error}}",
             "registerSuccess": "Registration successful!",
             "registerFailed": "Registration failed: {{error}}"
-        }
+        },
+        "useOwnKey": "Use your own API Key",
+        "apiKeyLabel": "API Key",
+        "apiKeyPlaceholder": "sk-ant-...",
+        "baseUrlLabel": "Base URL (optional)",
+        "baseUrlPlaceholder": "https://api.anthropic.com",
+        "modelLabel": "Model (optional)",
+        "modelPlaceholder": "claude-sonnet-4-5-20250929",
+        "startLocalMode": "Start",
+        "orDivider": "or",
+        "localModeActive": "Local Mode",
+        "apiKeyRequired": "Please enter your API Key"
     },
     "generation": {
         "title": "AI Workflow Generation",
@@ -718,5 +733,10 @@
         "capturedOps": "Captured Operations",
         "waitingOps": "No operations captured",
         "reRecord": "Re-Record"
+    },
+    "memory": {
+        "loginRequired": "Login to unlock Memory features",
+        "loginRequiredDesc": "Memory requires a cloud account to store and retrieve your workflow knowledge.",
+        "loginBtn": "Login"
     }
 }

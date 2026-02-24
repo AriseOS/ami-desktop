@@ -261,8 +261,31 @@ export function getConfiguredModel(): Model<"anthropic-messages"> {
   const use_proxy = (overrides.llm_use_proxy as boolean) ?? config.llm.use_proxy;
   const proxy_url = (overrides.llm_proxy_url as string) ?? config.llm.proxy_url;
 
+  // Determine which endpoint to use:
+  // - User has own API key → use user's base_url (or Anthropic default)
+  // - No own key → use sub2api proxy (our service)
+  const userApiKey = getAnthropicApiKey();
+  const credBaseUrl = getAnthropicBaseUrl();
+  const hasOwnCredentials = !!userApiKey && !!(credBaseUrl);
+
+  if (hasOwnCredentials) {
+    // Local mode: user's own API key + endpoint
+    return {
+      id: model,
+      name: model,
+      api: "anthropic-messages",
+      provider: "anthropic",
+      baseUrl: credBaseUrl,
+      reasoning: false,
+      input: ["text", "image"],
+      cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+      contextWindow: 200000,
+      maxTokens: 64000,
+    };
+  }
+
   if (use_proxy && proxy_url) {
-    // CRS proxy mode: construct Model manually
+    // Cloud mode: our sub2api proxy
     return {
       id: model,
       name: model,
@@ -277,11 +300,12 @@ export function getConfiguredModel(): Model<"anthropic-messages"> {
     };
   }
 
-  // Direct mode: use pi-ai's built-in model registry
+  // Direct mode: use pi-ai's built-in model registry (Anthropic default endpoint)
   const piModel = getModel("anthropic", model as any);
   if (!piModel) {
     throw new Error(`Unknown model "${model}" — check llm.model in config`);
   }
+
   return piModel as Model<"anthropic-messages">;
 }
 

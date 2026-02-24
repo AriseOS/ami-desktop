@@ -7,13 +7,20 @@ import '../styles/LoginPage.css';
 
 /**
  * Login Page Component
- * Allows users to login with username and password
+ * Allows users to login with username and password, or use their own API key
  */
-function LoginPage({ navigate, showStatus, onLoginSuccess }) {
+function LoginPage({ navigate, showStatus, onLoginSuccess, onLocalModeStart }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Local mode (own API key) state
+  const [showApiKeyForm, setShowApiKeyForm] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [model, setModel] = useState('');
+  const [localLoading, setLocalLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -67,6 +74,45 @@ function LoginPage({ navigate, showStatus, onLoginSuccess }) {
     }
   };
 
+  const handleLocalModeStart = async () => {
+    if (!apiKey.trim()) {
+      showStatus(t('auth.apiKeyRequired'), 'error');
+      return;
+    }
+
+    setLocalLoading(true);
+
+    try {
+      // Save API key and optional base_url to daemon settings
+      const credConfig = { api_key: apiKey.trim() };
+      if (baseUrl.trim()) {
+        credConfig.base_url = baseUrl.trim();
+      }
+      await api.setCredentials('anthropic', credConfig);
+
+      // Save model if provided
+      if (model.trim()) {
+        await api.post('/api/v1/settings', { llm_model: model.trim() });
+      }
+
+      console.log('[LoginPage] Local mode credentials saved');
+
+      // Notify parent to enter local mode
+      if (onLocalModeStart) {
+        await onLocalModeStart();
+      }
+
+      navigate('main');
+    } catch (error) {
+      console.error('[LoginPage] Failed to save local mode credentials:', error);
+      showStatus(t('auth.toasts.loginFailed', { error: error.message }), 'error');
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
+  const isAnyLoading = loading || localLoading;
+
   return (
     <div className="page login-page">
       <div className="auth-container">
@@ -88,7 +134,7 @@ function LoginPage({ navigate, showStatus, onLoginSuccess }) {
               placeholder={t('auth.emailPlaceholder')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              disabled={loading}
+              disabled={isAnyLoading}
               autoFocus
             />
             <div className="form-hint">{t('auth.emailHint')}</div>
@@ -103,14 +149,14 @@ function LoginPage({ navigate, showStatus, onLoginSuccess }) {
               placeholder={t('auth.passwordPlaceholder')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
+              disabled={isAnyLoading}
             />
           </div>
 
           <button
             type="submit"
             className="btn btn-primary btn-block"
-            disabled={loading}
+            disabled={isAnyLoading}
           >
             {loading ? (
               <>
@@ -132,13 +178,89 @@ function LoginPage({ navigate, showStatus, onLoginSuccess }) {
             {t('auth.noAccount')}{' '}
             <a
               className="auth-link"
-              onClick={() => !loading && navigate('register')}
-              style={{ cursor: loading ? 'not-allowed' : 'pointer' }}
+              onClick={() => !isAnyLoading && navigate('register')}
+              style={{ cursor: isAnyLoading ? 'not-allowed' : 'pointer' }}
             >
               {t('auth.registerLink')}
             </a>
           </p>
         </div>
+
+        {/* Divider */}
+        <div className="auth-divider">
+          <span>{t('auth.orDivider')}</span>
+        </div>
+
+        {/* Use Own API Key */}
+        <div className="auth-footer">
+          <a
+            className="auth-link"
+            onClick={() => !isAnyLoading && setShowApiKeyForm(!showApiKeyForm)}
+            style={{ cursor: isAnyLoading ? 'not-allowed' : 'pointer' }}
+          >
+            {t('auth.useOwnKey')}
+          </a>
+        </div>
+
+        {/* Inline API Key Form */}
+        {showApiKeyForm && (
+          <div className="api-key-form" style={{ marginTop: '16px' }}>
+            <div className="form-group">
+              <label htmlFor="apiKey">{t('auth.apiKeyLabel')}</label>
+              <input
+                id="apiKey"
+                type="password"
+                className="form-input"
+                placeholder={t('auth.apiKeyPlaceholder')}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                disabled={isAnyLoading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="baseUrl">{t('auth.baseUrlLabel')}</label>
+              <input
+                id="baseUrl"
+                type="text"
+                className="form-input"
+                placeholder={t('auth.baseUrlPlaceholder')}
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                disabled={isAnyLoading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="model">{t('auth.modelLabel')}</label>
+              <input
+                id="model"
+                type="text"
+                className="form-input"
+                placeholder={t('auth.modelPlaceholder')}
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                disabled={isAnyLoading}
+              />
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              disabled={isAnyLoading || !apiKey.trim()}
+              onClick={handleLocalModeStart}
+            >
+              {localLoading ? (
+                <>
+                  <div className="btn-spinner"></div>
+                  <span>{t('common.loading')}</span>
+                </>
+              ) : (
+                <span>{t('auth.startLocalMode')}</span>
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

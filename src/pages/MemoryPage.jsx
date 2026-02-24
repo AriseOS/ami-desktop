@@ -7,8 +7,9 @@ import '../styles/MemoryPage.css';
 /**
  * Memory Test Page
  * Displays memory statistics, query interface, and search results
+ * In local mode, shows a prompt to login for memory features
  */
-function MemoryPage({ session, showStatus }) {
+function MemoryPage({ session, showStatus, isLocalMode, onNavigateToLogin }) {
   const { t } = useTranslation();
   const userId = session?.username;
 
@@ -175,6 +176,41 @@ function MemoryPage({ session, showStatus }) {
       </div>
     </div>
   );
+
+  // Local mode — show login prompt
+  if (isLocalMode) {
+    return (
+      <div className="memory-page">
+        <div className="memory-content">
+          <div className="memory-header">
+            <h1>
+              <Icon icon="database" />
+              Memory Explorer
+            </h1>
+          </div>
+          <div className="card" style={{
+            padding: '40px',
+            textAlign: 'center',
+            maxWidth: '480px',
+            margin: '60px auto'
+          }}>
+            <Icon icon="lock" size={48} style={{ color: 'var(--text-tertiary)', marginBottom: '16px' }} />
+            <h2 style={{ marginBottom: '8px' }}>{t('memory.loginRequired')}</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              {t('memory.loginRequiredDesc')}
+            </p>
+            <button
+              className="btn btn-primary"
+              onClick={onNavigateToLogin}
+            >
+              <Icon icon="logIn" size={18} />
+              <span>{t('memory.loginBtn')}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="memory-page">

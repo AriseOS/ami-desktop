@@ -109,6 +109,7 @@ function App() {
 
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLocalMode, setIsLocalMode] = useState(false);
   const [session, setSession] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
 
@@ -296,7 +297,27 @@ function App() {
         // Recover any running backend tasks (e.g. after webview reload)
         useAgentStore.getState().recoverRunningTasks();
       } else {
-        console.log('[App] User is not logged in');
+        // Check if local mode was previously active
+        try {
+          const savedLocalMode = await window.electronAPI.storeGet('ami_local_mode');
+          if (savedLocalMode) {
+            // Verify credentials still exist
+            const creds = await api.getCredentials();
+            if (creds?.anthropic?.api_key) {
+              console.log('[App] Restoring local mode');
+              setIsLocalMode(true);
+              // Recover any running backend tasks in local mode too
+              useAgentStore.getState().recoverRunningTasks();
+            } else {
+              // Credentials gone, clear local mode flag
+              await window.electronAPI.storeDelete('ami_local_mode');
+            }
+          } else {
+            console.log('[App] User is not logged in');
+          }
+        } catch (e) {
+          console.log('[App] User is not logged in');
+        }
       }
     } catch (error) {
       console.error('[App] Failed to check login status:', error);
@@ -314,12 +335,31 @@ function App() {
     await checkLoginStatus();
   };
 
+  const handleLocalModeStart = async () => {
+    setIsLocalMode(true);
+    await window.electronAPI.storeSet('ami_local_mode', true);
+    console.log('[App] Entered local mode');
+    // Recover any running backend tasks
+    useAgentStore.getState().recoverRunningTasks();
+  };
+
+  const handleExitLocalMode = async () => {
+    setIsLocalMode(false);
+    await window.electronAPI.storeDelete('ami_local_mode');
+    console.log('[App] Exited local mode');
+    navigate('login');
+  };
+
   const handleLogout = async () => {
     // Clear local state
     setIsLoggedIn(false);
+    setIsLocalMode(false);
     setSession(null);
     setHasWorkflows(false);
     setRecentWorkflows([]);
+
+    // Clear local mode flag
+    await window.electronAPI.storeDelete('ami_local_mode').catch(() => {});
 
     // Navigate to login page
     navigate('login');
@@ -431,7 +471,7 @@ function App() {
       </button>
 
       <div className="footer" style={{ textAlign: 'center', marginTop: '40px', color: 'var(--text-tertiary)', fontSize: '12px' }}>
-        <p>Ami v{versionInfo?.version || '1.0.0'} • {session?.username && `Logged in as ${session.username}`}</p>
+        <p>Ami v{versionInfo?.version || '1.0.0'} • {session?.username ? `Logged in as ${session.username}` : isLocalMode ? t('auth.localModeActive') : ''}</p>
       </div>
     </div>
   );
@@ -632,8 +672,8 @@ function App() {
       );
     }
 
-    // Show login/register pages if not logged in
-    if (!isLoggedIn) {
+    // Show login/register pages if not logged in and not in local mode
+    if (!isLoggedIn && !isLocalMode) {
       if (currentPage === 'register') {
         return (
           <RegisterPage
@@ -649,15 +689,16 @@ function App() {
           navigate={navigate}
           showStatus={showStatus}
           onLoginSuccess={handleLoginSuccess}
+          onLocalModeStart={handleLocalModeStart}
         />
       );
     }
 
-    // User is logged in, show app pages
+    // User is logged in or in local mode, show app pages
     switch (currentPage) {
       case "login":
       case "register":
-        // Redirect to main if trying to access login/register while logged in
+        // Redirect to main if trying to access login/register while logged in or in local mode
         navigate("main");
         return renderMainPage();
 
@@ -669,6 +710,8 @@ function App() {
             onLogout={handleLogout}
             language={language}
             onLanguageChange={setLanguage}
+            isLocalMode={isLocalMode}
+            onExitLocalMode={handleExitLocalMode}
           />
         );
 
@@ -677,6 +720,8 @@ function App() {
           <MemoryPage
             session={session}
             showStatus={showStatus}
+            isLocalMode={isLocalMode}
+            onNavigateToLogin={handleExitLocalMode}
           />
         );
 
