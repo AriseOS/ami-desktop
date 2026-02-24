@@ -30,6 +30,18 @@ function getCredentials(req: Request): RequestCredentials {
   return { token };
 }
 
+/**
+ * Extract HTTP status code from CloudClient error messages.
+ * CloudClient throws: "Cloud API error 401 GET /path: ..."
+ */
+function getErrorStatus(err: unknown): number {
+  if (err instanceof Error) {
+    const match = err.message.match(/Cloud API error (\d{3})/);
+    if (match) return parseInt(match[1], 10);
+  }
+  return 500;
+}
+
 // ===== POST /add =====
 
 memoryRouter.post("/add", async (req: Request, res: Response) => {
@@ -39,7 +51,7 @@ memoryRouter.post("/add", async (req: Request, res: Response) => {
     const result = await client.memoryAdd(req.body, creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -52,7 +64,7 @@ memoryRouter.post("/query", async (req: Request, res: Response) => {
     const result = await client.memoryQuery(req.body, creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -65,7 +77,7 @@ memoryRouter.get("/stats", async (req: Request, res: Response) => {
     const result = await client.memoryStats(creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -87,7 +99,7 @@ memoryRouter.delete("/", async (req: Request, res: Response) => {
     const result = await client.memoryDelete(creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -101,7 +113,7 @@ memoryRouter.get("/phrases", async (req: Request, res: Response) => {
     const result = await client.listPhrases(limit, creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -116,7 +128,7 @@ memoryRouter.get("/phrases/public", async (req: Request, res: Response) => {
     const result = await client.listPublicPhrases(limit, sort, creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -130,7 +142,7 @@ memoryRouter.get("/phrases/:phraseId", async (req: Request, res: Response) => {
     const result = await client.getPhrase(req.params.phraseId, source, creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -145,7 +157,7 @@ memoryRouter.delete(
       const result = await client.deletePhrase(req.params.phraseId, creds);
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      res.status(getErrorStatus(err)).json({ error: String(err) });
     }
   },
 );
@@ -160,7 +172,7 @@ memoryRouter.post("/share", async (req: Request, res: Response) => {
     const result = await client.publishPhrase(phrase_id, creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -174,7 +186,7 @@ memoryRouter.post("/unpublish", async (req: Request, res: Response) => {
     const result = await client.unpublishPhrase(phrase_id, creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });
 
@@ -192,6 +204,6 @@ memoryRouter.get("/publish-status", async (req: Request, res: Response) => {
     const result = await client.getPublishStatus(phraseId, creds);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(getErrorStatus(err)).json({ error: String(err) });
   }
 });

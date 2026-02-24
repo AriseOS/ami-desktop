@@ -94,7 +94,14 @@ authRouter.post("/login", async (req: Request, res: Response) => {
       signal: AbortSignal.timeout(30_000),
     });
 
-    const data = (await resp.json()) as Record<string, unknown>;
+    let data: Record<string, unknown>;
+    try {
+      data = (await resp.json()) as Record<string, unknown>;
+    } catch {
+      logger.error({ status: resp.status }, "Login: non-JSON response from cloud backend");
+      res.status(resp.status).json({ error: `Cloud Backend returned non-JSON response (${resp.status})` });
+      return;
+    }
 
     // Intercept successful login → store session + fetch LLM creds
     if (resp.ok && data.access_token) {
@@ -132,7 +139,14 @@ authRouter.post("/register", async (req: Request, res: Response) => {
       signal: AbortSignal.timeout(30_000),
     });
 
-    const data = (await resp.json()) as Record<string, unknown>;
+    let data: Record<string, unknown>;
+    try {
+      data = (await resp.json()) as Record<string, unknown>;
+    } catch {
+      logger.error({ status: resp.status }, "Register: non-JSON response from cloud backend");
+      res.status(resp.status).json({ error: `Cloud Backend returned non-JSON response (${resp.status})` });
+      return;
+    }
 
     // Intercept successful registration → store session + fetch LLM creds
     if (resp.ok && data.access_token) {
@@ -170,7 +184,14 @@ authRouter.post("/refresh", async (req: Request, res: Response) => {
       signal: AbortSignal.timeout(30_000),
     });
 
-    const data = (await resp.json()) as Record<string, unknown>;
+    let data: Record<string, unknown>;
+    try {
+      data = (await resp.json()) as Record<string, unknown>;
+    } catch {
+      logger.error({ status: resp.status }, "Refresh: non-JSON response from cloud backend");
+      res.status(resp.status).json({ error: `Cloud Backend returned non-JSON response (${resp.status})` });
+      return;
+    }
 
     // Intercept successful refresh → update stored tokens (preserve existing refresh_token)
     if (resp.ok && data.access_token) {
@@ -210,7 +231,14 @@ authRouter.get("/credentials", async (req: Request, res: Response) => {
       signal: AbortSignal.timeout(30_000),
     });
 
-    const data = await resp.json();
+    let data: unknown;
+    try {
+      data = await resp.json();
+    } catch {
+      logger.error({ status: resp.status }, "Credentials: non-JSON response from cloud backend");
+      res.status(resp.status).json({ error: `Cloud Backend returned non-JSON response (${resp.status})` });
+      return;
+    }
     res.status(resp.status).json(data);
   } catch (err) {
     logger.error({ err }, "Credentials proxy failed");
