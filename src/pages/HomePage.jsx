@@ -424,7 +424,8 @@ function HomePage({ session, onNavigate, showStatus, version, initialMessage }) 
     try {
       // 1. Stop recording
       const stopResult = await api.callAppBackend('/api/v1/recordings/stop', {
-        method: "POST"
+        method: "POST",
+        body: JSON.stringify({ user_id: userId }),
       });
 
       setIsRecording(false);

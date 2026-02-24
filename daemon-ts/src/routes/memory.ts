@@ -9,7 +9,7 @@
  * GET    /api/v1/memory/phrases/public
  * GET    /api/v1/memory/phrases/:phraseId
  * DELETE /api/v1/memory/phrases/:phraseId
- * POST   /api/v1/memory/publish
+ * POST   /api/v1/memory/share
  * POST   /api/v1/memory/unpublish
  * GET    /api/v1/memory/publish-status
  */
@@ -25,10 +25,9 @@ export const memoryRouter = Router();
 // ===== Helper: extract per-request credentials =====
 
 function getCredentials(req: Request): RequestCredentials {
-  return {
-    apiKey: req.headers["x-ami-api-key"] as string | undefined,
-    userId: req.headers["x-user-id"] as string | undefined,
-  };
+  const authHeader = req.headers["authorization"] as string | undefined;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+  return { token };
 }
 
 // ===== POST /add =====
@@ -151,9 +150,9 @@ memoryRouter.delete(
   },
 );
 
-// ===== POST /publish =====
+// ===== POST /share =====
 
-memoryRouter.post("/publish", async (req: Request, res: Response) => {
+memoryRouter.post("/share", async (req: Request, res: Response) => {
   try {
     const client = getCloudClient();
     const creds = getCredentials(req);

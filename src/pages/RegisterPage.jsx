@@ -85,23 +85,24 @@ function RegisterPage({ navigate, showStatus, onRegisterSuccess }) {
     try {
       console.log('[RegisterPage] Attempting registration for:', username);
 
-      // Call API Proxy register endpoint
       const result = await api.register(username, email, password);
 
-      if (!result.success || !result.api_key) {
+      if (!result.success || !result.access_token) {
         throw new Error('Invalid response from server');
       }
 
       console.log('[RegisterPage] Registration successful, saving session');
 
-      // Save session with API key and token (CRS provides token in registration response)
       await auth.saveSession(
-        result.api_key,
+        result.access_token,
+        result.refresh_token,
         result.user.username,
-        result.user.email,
-        result.user,
-        result.token // CRS JWT token (if provided)
+        email,
+        result.user
       );
+
+      // Fetch and store LLM credentials (sub2api key) in daemon
+      await api.fetchAndStoreLLMCredentials();
 
       showStatus(t('auth.toasts.registerSuccess'), 'success');
 

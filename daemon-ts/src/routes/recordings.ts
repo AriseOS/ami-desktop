@@ -73,12 +73,14 @@ recordingsRouter.post("/start", async (req: Request, res: Response) => {
       operations: [],
     });
 
-    logger.info({ sessionId, url }, "Recording started");
+    const webviewId = session.webviewId;
+    logger.info({ sessionId, url, webviewId }, "Recording started");
 
     res.json({
       session_id: sessionId,
       status: "recording",
       url: url ?? null,
+      webview_id: webviewId,
     });
   } catch (err) {
     activeRecorder = null;
@@ -514,18 +516,19 @@ recordingsRouter.post(
   "/:sessionId/analyze",
   async (req: Request, res: Response) => {
     const { sessionId } = req.params;
-    const apiKey = req.headers["x-ami-api-key"] as string | undefined;
+    const authHeader = req.headers["authorization"] as string | undefined;
+    const authToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
     const { user_id } = req.body;
     const userId = user_id ?? "default";
 
-    if (!apiKey) {
-      res.status(401).json({ error: "X-Ami-API-Key header required" });
+    if (!authToken) {
+      res.status(401).json({ error: "Authorization Bearer token required" });
       return;
     }
 
     try {
       const client = getCloudClient();
-      const result = await client.analyzeRecording(sessionId, userId, { apiKey });
+      const result = await client.analyzeRecording(sessionId, userId, { token: authToken });
       res.json(result);
     } catch (err) {
       res.status(500).json({ error: String(err) });

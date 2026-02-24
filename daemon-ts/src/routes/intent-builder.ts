@@ -17,10 +17,9 @@ const logger = createLogger("intent-builder-routes");
 export const intentBuilderRouter = Router();
 
 function getCredentials(req: Request): RequestCredentials {
-  return {
-    apiKey: req.headers["x-ami-api-key"] as string | undefined,
-    userId: req.headers["x-user-id"] as string | undefined,
-  };
+  const authHeader = req.headers["authorization"] as string | undefined;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+  return { token };
 }
 
 // ===== POST /sessions =====

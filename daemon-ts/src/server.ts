@@ -8,6 +8,13 @@
  * - Graceful shutdown on SIGTERM/SIGINT
  */
 
+// Prevent Anthropic SDK from picking up stale env vars when using sub2api proxy.
+// The SDK reads ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL
+// as constructor defaults, which would override the values we explicitly pass.
+delete process.env.ANTHROPIC_API_KEY;
+delete process.env.ANTHROPIC_AUTH_TOKEN;
+delete process.env.ANTHROPIC_BASE_URL;
+
 import express from "express";
 import cors from "cors";
 import { writeFileSync, unlinkSync, existsSync, readFileSync, mkdirSync } from "node:fs";
@@ -24,6 +31,7 @@ import { settingsRouter } from "./routes/settings.js";
 import { intentBuilderRouter } from "./routes/intent-builder.js";
 import { sessionRouter } from "./routes/session.js";
 import { integrationsRouter } from "./routes/integrations.js";
+import { authRouter } from "./routes/auth.js";
 import { loadConfig } from "./utils/config.js";
 import { getCloudClient } from "./services/cloud-client.js";
 
@@ -156,6 +164,7 @@ app.use("/api/v1/settings", settingsRouter);
 app.use("/api/v1/intent-builder", intentBuilderRouter);
 app.use("/api/v1/session", sessionRouter);
 app.use("/api/v1/integrations", integrationsRouter);
+app.use("/api/v1/auth", authRouter);
 
 // ===== Port Discovery =====
 

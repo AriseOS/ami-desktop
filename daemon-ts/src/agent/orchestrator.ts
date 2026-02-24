@@ -537,6 +537,7 @@ export class OrchestratorSession {
   readonly taskState: TaskState;
   private emitter: SSEEmitter;
   private apiKey?: string;
+  private authToken?: string;
   private workspaceDir: string;
 
   // Agent
@@ -560,6 +561,7 @@ export class OrchestratorSession {
     taskState: TaskState;
     emitter: SSEEmitter;
     apiKey?: string;
+    authToken?: string;
     workspaceDir?: string;
     childAgentToolsFactory?: (
       agentType: AgentType,
@@ -571,6 +573,7 @@ export class OrchestratorSession {
     this.taskState = opts.taskState;
     this.emitter = opts.emitter;
     this.apiKey = opts.apiKey;
+    this.authToken = opts.authToken;
     this.workspaceDir =
       opts.workspaceDir ?? process.env.HOME + "/.ami/workspace";
     this.childAgentToolsFactory = opts.childAgentToolsFactory;
@@ -823,6 +826,8 @@ export class OrchestratorSession {
     ];
 
     const model = getConfiguredModel();
+    const resolvedKey = this.apiKey ?? getAnthropicApiKey();
+    logger.info({ modelId: model.id, baseUrl: model.baseUrl, keyPrefix: resolvedKey?.slice(0, 10) }, "Creating orchestrator agent");
 
     const agent = new Agent({
       initialState: {
@@ -834,7 +839,7 @@ export class OrchestratorSession {
       },
       getApiKey: async (provider: string) => {
         if (provider === "anthropic") {
-          return this.apiKey ?? getAnthropicApiKey();
+          return resolvedKey;
         }
         return undefined;
       },
@@ -937,7 +942,7 @@ export class OrchestratorSession {
         taskId: this.taskId,
         emitter: this.emitter,
         apiKey: this.apiKey,
-        userId: this.taskState.userId,
+        authToken: this.authToken,
         memoryApiBaseUrl: getConfig().cloud.api_url,
       });
 
@@ -1048,6 +1053,7 @@ export class OrchestratorSession {
       taskId: this.taskId,
       emitter: this.emitter,
       apiKey: this.apiKey,
+      authToken: this.authToken,
       agentTools,
       systemPrompts,
       userRequest: taskDescription,

@@ -41,7 +41,7 @@ llm:
   # Use CRS (Claude Relay Service) for all LLM calls
   # Migration: Changed from old API Proxy to CRS
   use_proxy: true
-  proxy_url: https://api.ariseos.com/api  # CRS production URL with /api prefix
+  proxy_url: http://localhost:8080  # sub2api LLM gateway (no /api prefix — gateway routes are at /v1/messages)
 
 # Embedding Service Configuration
 # Used for semantic search in Personal Memory

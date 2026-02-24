@@ -183,7 +183,7 @@ export class SSEClient {
     this.options = options; // Store for reconnection
     this.abortController = new AbortController();
 
-    const apiKey = await auth.getApiKey();
+    const token = await auth.getToken();
     const sseUrl = `${BACKEND_CONFIG.httpBase}/api/v1/quick-task/stream/${taskId}`;
 
     console.log('[SSE] Connecting to:', sseUrl);
@@ -196,7 +196,7 @@ export class SSEClient {
         headers: {
           'Accept': 'text/event-stream',
           'Cache-Control': 'no-cache',
-          ...(apiKey && { 'X-Ami-API-Key': apiKey }),
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         signal: this.abortController.signal,
       });
@@ -514,12 +514,12 @@ export class SSEClient {
       throw new Error('Not connected to any task');
     }
 
-    const apiKey = await auth.getApiKey();
+    const token = await auth.getToken();
     const response = await fetch(`${BACKEND_CONFIG.httpBase}/api/v1/quick-task/message/${this.taskId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(apiKey && { 'X-Ami-API-Key': apiKey }),
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
       body: JSON.stringify({ type, ...data }),
     });

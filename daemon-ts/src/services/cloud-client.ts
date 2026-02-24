@@ -16,8 +16,7 @@ const logger = createLogger("cloud-client");
 
 /** Per-request credentials to avoid singleton mutation races */
 export interface RequestCredentials {
-  apiKey?: string;
-  userId?: string;
+  token?: string;  // JWT access token
 }
 
 export class CloudClient {
@@ -45,11 +44,8 @@ export class CloudClient {
       ...extraHeaders,
     };
 
-    if (creds?.apiKey) {
-      headers["X-Ami-API-Key"] = creds.apiKey;
-    }
-    if (creds?.userId) {
-      headers["X-User-Id"] = creds.userId;
+    if (creds?.token) {
+      headers["Authorization"] = `Bearer ${creds.token}`;
     }
 
     logger.debug({ method, path }, "Cloud API request");
@@ -208,8 +204,7 @@ export class CloudClient {
   async intentBuilderStream(sessionId: string, creds?: RequestCredentials): Promise<Response> {
     const url = `${this.baseUrl}/api/v1/intent-builder/sessions/${sessionId}/stream`;
     const headers: Record<string, string> = {};
-    if (creds?.apiKey) headers["X-Ami-API-Key"] = creds.apiKey;
-    if (creds?.userId) headers["X-User-Id"] = creds.userId;
+    if (creds?.token) headers["Authorization"] = `Bearer ${creds.token}`;
 
     // SSE streams are long-lived — use 10 min timeout instead of the default 30s
     return fetch(url, {

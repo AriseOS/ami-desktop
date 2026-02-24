@@ -34,23 +34,24 @@ function LoginPage({ navigate, showStatus, onLoginSuccess }) {
     try {
       console.log('[LoginPage] Attempting login for:', username);
 
-      // Call API Proxy login endpoint
       const result = await api.login(username, password);
 
-      if (!result.success || !result.api_key) {
+      if (!result.success || !result.access_token) {
         throw new Error('Invalid response from server');
       }
 
       console.log('[LoginPage] Login successful, saving session');
 
-      // Save session with API key and token (CRS provides token in login response)
       await auth.saveSession(
-        result.api_key,
+        result.access_token,
+        result.refresh_token,
         result.user.username,
-        result.user.email,
-        result.user,
-        result.token // CRS JWT token
+        result.user.email || '',
+        result.user
       );
+
+      // Fetch and store LLM credentials (sub2api key) in daemon
+      await api.fetchAndStoreLLMCredentials();
 
       showStatus(t('auth.toasts.loginSuccess'), 'success');
 

@@ -216,7 +216,7 @@ export default function BrowserPage({
     try {
       const result = await api.callAppBackend('/api/v1/recordings/stop', {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: JSON.stringify({ user_id: session?.username }),
       });
 
       const meta = recordingMeta[recordingTabId];
@@ -224,10 +224,38 @@ export default function BrowserPage({
       // Close the recording tab (navigates view back to pool)
       closeTab(recordingTabId);
 
+      const sessionId = result.session_id || meta?.sessionId || initialSessionId;
+
+      // Analyze recording with AI to generate name and description
+      showStatus?.('Analyzing recording...', 'info');
+      let analysisName = '';
+      let analysisTaskDesc = '';
+      try {
+        const analysisResult = await api.analyzeRecording(sessionId, session?.username);
+        analysisName = analysisResult.name || '';
+        analysisTaskDesc = analysisResult.task_description || '';
+
+        // Save analysis metadata to recording
+        await api.callAppBackend(`/api/v1/recordings/${sessionId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: analysisName,
+            task_description: analysisTaskDesc,
+            user_query: analysisResult.user_query,
+            user_id: session?.username,
+          }),
+        });
+      } catch (analysisError) {
+        console.error('Recording analysis failed:', analysisError);
+        // Continue without analysis — not critical
+      }
+
       showStatus?.('Recording saved!', 'success');
 
       onNavigate('recording-analysis', {
-        sessionId: result.session_id || meta?.sessionId || initialSessionId,
+        sessionId,
+        name: analysisName,
+        taskDescription: analysisTaskDesc,
         operationsCount: result.operations_count || operationsCount,
         localFilePath: result.local_file_path,
         userId: session?.username,
@@ -245,7 +273,7 @@ export default function BrowserPage({
     try {
       await api.callAppBackend('/api/v1/recordings/stop', {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: JSON.stringify({ user_id: session?.username }),
       });
     } catch {
       // Ignore
@@ -258,6 +286,11 @@ export default function BrowserPage({
   // --- Close tab ---
   const handleCloseTab = (e, tabId) => {
     e.stopPropagation(); // Don't trigger tab switch
+    // If closing a recording tab, stop recording first
+    if (views[tabId]?.mode === 'recording') {
+      handleCancelRecording();
+      return;
+    }
     closeTab(tabId);
   };
 

@@ -1,19 +1,13 @@
 /**
- * API Client with Auto-injected API Key
- * Handles communication with Claude Relay Service (CRS) and App Backend
+ * API Client with Auto-injected JWT Auth
+ * All requests go through daemon-ts (localhost), which proxies to Cloud Backend.
  *
- * Migration Notes:
- * - Migrated from old API Proxy to Claude Relay Service (CRS)
- * - CRS uses /api/users/* endpoints for user management
- * - API key prefix changed from ami_ to cr_ (configurable in CRS)
+ * Auth: JWT access token + refresh token, proxied via daemon /api/v1/auth/*
+ * All calls: Bearer token auto-injected, auto-refresh on 401
  */
 
 import { auth } from './auth';
 import { BACKEND_CONFIG, initBackendPort } from '../config/backend';
-
-// API endpoints
-// CRS (Claude Relay Service) - User Management and LLM Proxy
-const CRS_BASE = 'https://api.ariseos.com'; // CRS production URL
 
 // Get backend URL dynamically (port may change)
 const getBackendBase = () => BACKEND_CONFIG.httpBase;
@@ -185,18 +179,18 @@ export const api = {
   // ============================================================================
 
   /**
-   * Register new user (CRS)
+   * Register new user (Cloud Backend)
    *
    * @param {string} username - Username
    * @param {string} email - Email address
    * @param {string} password - Password
-   * @returns {Promise<object>} Registration result with API key
+   * @returns {Promise<object>} Registration result with JWT tokens
    */
   async register(username, email, password) {
     try {
-      console.log('[API] Registering user with CRS:', username);
+      console.log('[API] Registering user:', username);
 
-      const response = await fetch(`${CRS_BASE}/api/users/register`, {
+      const response = await fetch(`${getBackendBase()}/api/v1/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password })
@@ -204,30 +198,21 @@ export const api = {
 
       if (!response.ok) {
         const error = await response.json();
-        // CRS returns error.message or error.detail
         throw new Error(error.message || error.detail || 'Registration failed');
       }
 
       const result = await response.json();
-      console.log('[API] Registration successful (CRS Extension)');
+      console.log('[API] Registration successful');
 
-      // Adapt CRS Extension response format
-      // CRS Extension returns: { success, data: { user, apiKey, apiKeyId }, message }
-      const regUser = result.data.user;
+      // Cloud Backend returns: { success, access_token, refresh_token, user_id, username }
       return {
         success: result.success,
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
         user: {
-          user_id: regUser.id,
-          username: regUser.username,
-          email: regUser.email,
-          // CRS Extension uses is_active/isActive boolean, not status string
-          is_active: regUser.isActive ?? regUser.is_active ?? true,
-          is_admin: regUser.role === 'admin',
-          trial_end: regUser.trialEndDate || regUser.trial_end_date,
-          quota: regUser.quota
+          id: result.user_id,
+          username: result.username,
         },
-        api_key: result.data.apiKey,
-        api_key_id: result.data.apiKeyId
       };
     } catch (error) {
       console.error('[API] Registration error:', error);
@@ -236,37 +221,22 @@ export const api = {
   },
 
   /**
-   * Login user (CRS)
+   * Login user (Cloud Backend)
    *
-   * IMPORTANT: CRS only supports email-based login (not username)
+   * Supports both email and username login.
    *
-   * @param {string} emailOrUsername - Email address (CRS requires email)
+   * @param {string} emailOrUsername - Email address or username
    * @param {string} password - Password
-   * @returns {Promise<object>} Login result with API key
+   * @returns {Promise<object>} Login result with JWT tokens
    */
   async login(emailOrUsername, password) {
     try {
-      console.log('[API] Logging in user with CRS:', emailOrUsername);
+      console.log('[API] Logging in user:', emailOrUsername);
 
-      // CRS only supports email login
-      // Detect if input is email or username
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const isEmail = emailRegex.test(emailOrUsername);
-
-      if (!isEmail) {
-        // TODO: Option 1 - Throw error and require email
-        throw new Error('CRS only supports email login. Please use your email address.');
-
-        // TODO: Option 2 - Call backend to convert username → email (requires new endpoint)
-        // const email = await this.convertUsernameToEmail(emailOrUsername);
-      }
-
-      const email = emailOrUsername;
-
-      const response = await fetch(`${CRS_BASE}/api/users/login`, {
+      const response = await fetch(`${getBackendBase()}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ username: emailOrUsername, password })
       });
 
       if (!response.ok) {
@@ -275,41 +245,17 @@ export const api = {
       }
 
       const result = await response.json();
-      console.log('[API] Login successful (CRS)');
+      console.log('[API] Login successful');
 
-      // CRS login returns JWT token but NOT the API key
-      // We need to fetch user profile to get the API key
-      const profileResponse = await fetch(`${CRS_BASE}/api/users/profile`, {
-        headers: {
-          'Authorization': `Bearer ${result.data.token}`
-        }
-      });
-
-      if (!profileResponse.ok) {
-        throw new Error('Failed to fetch user profile');
-      }
-
-      const profile = await profileResponse.json();
-
-      // Adapt CRS Extension response format
-      // CRS Extension login returns: { success, data: { token, user, expiresIn } }
-      // CRS Extension profile returns: { success, data: { user, apiKeys, status } }
-      // NOTE: CRS Extension returns DECRYPTED plaintext API keys
-      const loginUser = result.data.user;
+      // Cloud Backend returns: { access_token, refresh_token, user_id, username }
       return {
-        success: result.success,
-        token: result.data.token,
+        success: true,
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
         user: {
-          user_id: loginUser.id,
-          username: loginUser.username,
-          email: loginUser.email,
-          // CRS Extension uses is_active/isActive boolean, not status string
-          is_active: loginUser.isActive ?? loginUser.is_active ?? true,
-          is_admin: loginUser.role === 'admin'
+          id: result.user_id,
+          username: result.username,
         },
-        // CRS Extension returns plaintext API key (decrypted from encrypted storage)
-        api_key: profile.data.apiKeys?.[0]?.key || null,
-        api_keys: profile.data.apiKeys
       };
     } catch (error) {
       console.error('[API] Login error:', error);
@@ -318,46 +264,92 @@ export const api = {
   },
 
   /**
-   * Get user's quota status from CRS
+   * Fetch LLM credentials from Cloud Backend and store in daemon settings.
+   * Called after login/register to provision the daemon with sub2api API key.
    *
-   * NOTE: CRS uses JWT token authentication for this endpoint, not API key
+   * @returns {Promise<boolean>} True if credentials were stored successfully
+   */
+  async fetchAndStoreLLMCredentials() {
+    try {
+      const token = await auth.getToken();
+      if (!token) {
+        console.warn('[API] No token available, skipping LLM credentials fetch');
+        return false;
+      }
+
+      console.log('[API] Fetching LLM credentials from Cloud Backend...');
+      const response = await fetch(`${getBackendBase()}/api/v1/auth/credentials`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      if (!response.ok) {
+        console.warn('[API] Failed to fetch LLM credentials:', response.status);
+        return false;
+      }
+
+      const { api_key } = await response.json();
+      if (!api_key) {
+        console.warn('[API] No API key in credentials response');
+        return false;
+      }
+
+      // Store as anthropic credentials in daemon settings
+      await this.setCredentials('anthropic', { api_key });
+
+      console.log('[API] LLM credentials stored in daemon settings');
+      return true;
+    } catch (error) {
+      console.error('[API] Failed to fetch/store LLM credentials:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Get user's quota status
    *
    * @returns {Promise<object>} Quota status
    */
   async getQuotaStatus() {
-    // TODO: CRS quota endpoint not yet implemented, return null for now
-    console.log('[API] Quota status: CRS endpoint not implemented, skipping');
+    // TODO: Quota endpoint not yet implemented on Cloud Backend
     return null;
+  },
 
-    // Uncomment when CRS implements /api/users/quota endpoint:
-    // try {
-    //   // CRS uses JWT token for quota endpoint
-    //   const session = await auth.getSession();
-    //   if (!session || !session.token) {
-    //     throw new Error('Not logged in');
-    //   }
-    //
-    //   console.log('[API] Fetching quota status from CRS');
-    //
-    //   const response = await fetch(`${CRS_BASE}/api/users/quota`, {
-    //     headers: {
-    //       'Authorization': `Bearer ${session.token}`
-    //     }
-    //   });
-    //
-    //   if (!response.ok) {
-    //     throw new Error('Failed to get quota status');
-    //   }
-    //
-    //   const result = await response.json();
-    //   console.log('[API] Quota status retrieved (CRS)');
-    //
-    //   // CRS returns: { success, data: { current_usage, limit, remaining, percent_used, quota_exceeded, reset_date } }
-    //   return result.data;
-    // } catch (error) {
-    //   console.error('[API] Quota status error:', error);
-    //   throw error;
-    // }
+  /**
+   * Refresh JWT access token using refresh token.
+   * Called automatically by callAppBackend on 401.
+   *
+   * @returns {Promise<boolean>} True if refresh succeeded
+   */
+  async _refreshToken() {
+    try {
+      const refreshToken = await auth.getRefreshToken();
+      if (!refreshToken) {
+        console.warn('[API] No refresh token available');
+        return false;
+      }
+
+      console.log('[API] Refreshing JWT token...');
+      const response = await fetch(`${getBackendBase()}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+
+      if (!response.ok) {
+        console.warn('[API] Token refresh failed:', response.status);
+        return false;
+      }
+
+      const result = await response.json();
+      await auth.updateTokens(result.access_token, result.refresh_token);
+      console.log('[API] Token refreshed successfully');
+      return true;
+    } catch (error) {
+      console.error('[API] Token refresh error:', error);
+      return false;
+    }
   },
 
   // ============================================================================
@@ -365,41 +357,40 @@ export const api = {
   // ============================================================================
 
   /**
-   * Call App Backend with auto-injected auth headers
-   * - X-Ami-API-Key: CRS API key (if logged in)
-   * - X-User-Id: current username (if logged in)
+   * Call App Backend with auto-injected Authorization header.
+   *
+   * On 401 response, automatically attempts token refresh and retries once.
    *
    * @param {string} endpoint - API endpoint path (e.g., "/api/browser/start")
    * @param {object} options - Fetch options (method, body, headers, etc.)
+   * @param {boolean} _isRetry - Internal flag to prevent infinite retry loops
    * @returns {Promise<any>} Response data
    */
-  async callAppBackend(endpoint, options = {}) {
+  async callAppBackend(endpoint, options = {}, _isRetry = false) {
     try {
-      const session = await auth.getSession();
-      const apiKey = session?.apiKey ?? await auth.getApiKey();
-      const userId = session?.username;
+      const token = await auth.getToken();
 
       const headers = {
         'Content-Type': 'application/json',
         ...options.headers
       };
 
-      // Auto-inject X-Ami-API-Key if logged in
-      if (apiKey) {
-        headers['X-Ami-API-Key'] = apiKey;
-        console.log(`[API] Calling ${endpoint} with API key`);
-      } else {
-        console.log(`[API] Calling ${endpoint} without API key`);
-      }
-      // Auto-inject X-User-Id for user-scoped operations (e.g., memory)
-      if (userId) {
-        headers['X-User-Id'] = userId;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       const response = await fetch(`${getBackendBase()}${endpoint}`, {
         ...options,
         headers
       });
+
+      // Auto-refresh on 401 (token expired)
+      if (response.status === 401 && !_isRetry) {
+        const refreshed = await this._refreshToken();
+        if (refreshed) {
+          return await this.callAppBackend(endpoint, options, true);
+        }
+      }
 
       if (!response.ok) {
         let errorMessage;
@@ -415,7 +406,6 @@ export const api = {
       return await response.json();
     } catch (error) {
       console.error('[API] App Backend error:', error);
-      // On connection error: invalidate cached port (daemon may have restarted on a new port)
       if (isConnectionError(error)) {
         console.warn('[API] Connection error — invalidating cached daemon port');
         initBackendPort(true).catch(() => {});
@@ -436,20 +426,15 @@ export const api = {
    */
   async callAppBackendRaw(endpoint, options = {}) {
     try {
-      const session = await auth.getSession();
-      const apiKey = session?.apiKey ?? await auth.getApiKey();
-      const userId = session?.username;
+      const token = await auth.getToken();
 
       const headers = {
         'Content-Type': 'application/json',
         ...options.headers
       };
 
-      if (apiKey) {
-        headers['X-Ami-API-Key'] = apiKey;
-      }
-      if (userId) {
-        headers['X-User-Id'] = userId;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       return await fetch(`${getBackendBase()}${endpoint}`, {
@@ -457,7 +442,6 @@ export const api = {
         headers
       });
     } catch (error) {
-      // On connection error: invalidate cached port (daemon may have restarted on a new port)
       if (isConnectionError(error)) {
         initBackendPort(true).catch(() => {});
         if (connectionErrorCallback) {
@@ -1079,7 +1063,7 @@ export const api = {
    * @returns {Promise<object>} Result with success and public_phrase_id
    */
   async shareCognitivePhrase(phraseId) {
-    return await this.callAppBackend('/api/v1/memory/publish', {
+    return await this.callAppBackend('/api/v1/memory/share', {
       method: 'POST',
       body: JSON.stringify({ phrase_id: phraseId }),
     });

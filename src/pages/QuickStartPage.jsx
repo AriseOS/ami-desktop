@@ -171,7 +171,8 @@ function QuickStartPage({ session, onNavigate, showStatus, version }) {
       }
 
       const result = await api.callAppBackend('/api/v1/recordings/stop', {
-        method: "POST"
+        method: "POST",
+        body: JSON.stringify({ user_id: userId }),
       });
       setOperationsCount(result.operations_count);
       showStatus(t('quickStart.status.recordingCompleted', { count: result.operations_count }), "success");
@@ -202,7 +203,7 @@ function QuickStartPage({ session, onNavigate, showStatus, version }) {
         });
       }, 300);
 
-      // Use api.analyzeRecording() which auto-injects X-Ami-API-Key header
+      // Use api.analyzeRecording() which auto-injects Authorization header
       const analysisResult = await api.analyzeRecording(sessionId, userId);
 
       clearInterval(progressInterval);

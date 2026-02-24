@@ -39,16 +39,15 @@ quickTaskRouter.post("/execute", (req: Request, res: Response) => {
   }
 
   const taskId = uuid().slice(0, 8);
-  const apiKey = req.headers["x-ami-api-key"] as string | undefined;
-  const userId = req.headers["x-user-id"] as string | undefined;
+  const authHeader = req.headers["authorization"] as string | undefined;
+  const authToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
 
   const state = taskRegistry.create(taskId, task);
-  state.userId = userId;
 
   logger.info({ taskId, task: task.slice(0, 100) }, "Task submitted");
 
   // Start execution in background
-  executeTaskPipeline(state, apiKey).catch((err) => {
+  executeTaskPipeline(state, { authToken }).catch((err) => {
     logger.error({ taskId, err }, "Task execution failed");
   });
 

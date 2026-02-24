@@ -1,6 +1,8 @@
 /**
  * Authentication and Session Management
  * Uses Electron Store via IPC for secure local storage
+ *
+ * JWT-based auth: access_token (60min) + refresh_token (30d)
  */
 
 /**
@@ -10,23 +12,20 @@ export const auth = {
   /**
    * Save user session after successful login/registration
    *
-   * @param {string} apiKey - User's API key (cr_xxxxx format for CRS)
+   * @param {string} token - JWT access token
+   * @param {string} refreshToken - JWT refresh token
    * @param {string} username - Username
    * @param {string} email - User email
    * @param {object} userData - Additional user data
-   * @param {string} token - JWT token (optional, from CRS login)
    */
-  async saveSession(apiKey, username, email, userData = {}, token = null) {
+  async saveSession(token, refreshToken, username, email, userData = {}) {
     try {
-      await window.electronAPI.storeSet('user_api_key', apiKey);
+      await window.electronAPI.storeSet('jwt_token', token);
+      await window.electronAPI.storeSet('refresh_token', refreshToken);
       await window.electronAPI.storeSet('username', username);
       await window.electronAPI.storeSet('email', email);
       await window.electronAPI.storeSet('user_data', userData);
       await window.electronAPI.storeSet('login_timestamp', new Date().toISOString());
-
-      if (token) {
-        await window.electronAPI.storeSet('jwt_token', token);
-      }
 
       console.log('[Auth] Session saved successfully');
     } catch (error) {
@@ -42,24 +41,24 @@ export const auth = {
    */
   async getSession() {
     try {
-      const apiKey = await window.electronAPI.storeGet('user_api_key');
+      const token = await window.electronAPI.storeGet('jwt_token');
+      const refreshToken = await window.electronAPI.storeGet('refresh_token');
       const username = await window.electronAPI.storeGet('username');
       const email = await window.electronAPI.storeGet('email');
       const userData = await window.electronAPI.storeGet('user_data');
       const loginTimestamp = await window.electronAPI.storeGet('login_timestamp');
-      const token = await window.electronAPI.storeGet('jwt_token');
 
-      if (!apiKey) {
+      if (!token) {
         return null;
       }
 
       return {
-        apiKey,
+        token,
+        refreshToken,
         username,
         email,
         userData: userData || {},
         loginTimestamp,
-        token
       };
     } catch (error) {
       console.error('[Auth] Failed to get session:', error);
@@ -68,17 +67,51 @@ export const auth = {
   },
 
   /**
-   * Get user's API key
+   * Get JWT access token
    *
-   * @returns {Promise<string|null>} API key or null if not logged in
+   * @returns {Promise<string|null>} JWT token or null if not logged in
    */
-  async getApiKey() {
+  async getToken() {
     try {
-      const apiKey = await window.electronAPI.storeGet('user_api_key');
-      return apiKey || null;
+      const token = await window.electronAPI.storeGet('jwt_token');
+      return token || null;
     } catch (error) {
-      console.error('[Auth] Failed to get API key:', error);
+      console.error('[Auth] Failed to get token:', error);
       return null;
+    }
+  },
+
+  /**
+   * Get JWT refresh token
+   *
+   * @returns {Promise<string|null>} Refresh token or null
+   */
+  async getRefreshToken() {
+    try {
+      const refreshToken = await window.electronAPI.storeGet('refresh_token');
+      return refreshToken || null;
+    } catch (error) {
+      console.error('[Auth] Failed to get refresh token:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Update stored JWT tokens (after refresh)
+   *
+   * @param {string} token - New JWT access token
+   * @param {string} refreshToken - New refresh token (optional, may not change)
+   */
+  async updateTokens(token, refreshToken) {
+    try {
+      await window.electronAPI.storeSet('jwt_token', token);
+      if (refreshToken) {
+        await window.electronAPI.storeSet('refresh_token', refreshToken);
+      }
+      console.log('[Auth] Tokens updated');
+    } catch (error) {
+      console.error('[Auth] Failed to update tokens:', error);
+      throw new Error('Failed to update tokens');
     }
   },
 
@@ -87,12 +120,14 @@ export const auth = {
    */
   async clearSession() {
     try {
-      await window.electronAPI.storeDelete('user_api_key');
+      await window.electronAPI.storeDelete('jwt_token');
+      await window.electronAPI.storeDelete('refresh_token');
       await window.electronAPI.storeDelete('username');
       await window.electronAPI.storeDelete('email');
       await window.electronAPI.storeDelete('user_data');
       await window.electronAPI.storeDelete('login_timestamp');
-      await window.electronAPI.storeDelete('jwt_token');
+      // Clean up legacy key from pre-JWT auth
+      await window.electronAPI.storeDelete('user_api_key');
 
       console.log('[Auth] Session cleared');
     } catch (error) {
@@ -108,8 +143,8 @@ export const auth = {
    */
   async isLoggedIn() {
     try {
-      const apiKey = await window.electronAPI.storeGet('user_api_key');
-      return !!apiKey;
+      const token = await window.electronAPI.storeGet('jwt_token');
+      return !!token;
     } catch (error) {
       console.error('[Auth] Failed to check login status:', error);
       return false;

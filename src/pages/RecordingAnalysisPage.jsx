@@ -12,11 +12,11 @@ function RecordingAnalysisPage({ session, pageData, onNavigate, showStatus }) {
   const [isAdded, setIsAdded] = useState(false);
   const [operations, setOperations] = useState([]);
   const [loadingOps, setLoadingOps] = useState(true);
+  const [recordingName, setRecordingName] = useState(pageData?.name || '');
 
   const sessionId = pageData?.sessionId;
-  const recordingName = pageData?.name || t('analysis.unnamedTask');
 
-  // Fetch operations on mount
+  // Fetch recording detail on mount
   useEffect(() => {
     if (!sessionId || !userId) {
       setLoadingOps(false);
@@ -29,6 +29,9 @@ function RecordingAnalysisPage({ session, pageData, onNavigate, showStatus }) {
           `/api/v1/recordings/${sessionId}?user_id=${userId}`
         );
         setOperations(detail?.operations || []);
+        if (!recordingName && detail?.task_metadata?.name) {
+          setRecordingName(detail.task_metadata.name);
+        }
       } catch (error) {
         console.error("Failed to load operations:", error);
       } finally {
@@ -156,7 +159,7 @@ function RecordingAnalysisPage({ session, pageData, onNavigate, showStatus }) {
         {/* Header */}
         <div className="complete-header">
           <div className="complete-icon"><Icon icon="checkCircle" size={32} /></div>
-          <h2>{recordingName}</h2>
+          <h2>{recordingName || t('analysis.unnamedTask')}</h2>
         </div>
 
         {/* Stats bar */}

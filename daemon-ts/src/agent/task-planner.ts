@@ -38,7 +38,7 @@ export class AMITaskPlanner {
   private taskId: string;
   private emitter?: SSEEmitter;
   private apiKey?: string;
-  private userId?: string;
+  private authToken?: string;
   private memoryApiBaseUrl: string;
   private workerDescriptions: Record<string, string>;
 
@@ -46,14 +46,14 @@ export class AMITaskPlanner {
     taskId: string;
     emitter?: SSEEmitter;
     apiKey?: string;
-    userId?: string;
+    authToken?: string;
     memoryApiBaseUrl: string;
     workerDescriptions?: Record<string, string>;
   }) {
     this.taskId = opts.taskId;
     this.emitter = opts.emitter;
     this.apiKey = opts.apiKey;
-    this.userId = opts.userId;
+    this.authToken = opts.authToken;
     this.memoryApiBaseUrl = opts.memoryApiBaseUrl;
     this.workerDescriptions = opts.workerDescriptions ?? DEFAULT_WORKER_DESCRIPTIONS;
 
@@ -84,8 +84,7 @@ export class AMITaskPlanner {
 
       const memoryToolkit = new MemoryToolkit({
         memoryApiBaseUrl: this.memoryApiBaseUrl,
-        apiKey: this.apiKey,
-        userId: this.userId,
+        authToken: this.authToken,
         taskId: this.taskId,
         emitter: this.emitter,
       });

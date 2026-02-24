@@ -82,6 +82,7 @@ export class AMITaskExecutor implements TaskExecutorLike {
   readonly taskLabel: string;
   private emitter?: SSEEmitter;
   private apiKey?: string;
+  private authToken?: string;
   private userRequest: string;
   private maxRetries: number;
   private maxTurnsPerSubtask: number;
@@ -116,6 +117,7 @@ export class AMITaskExecutor implements TaskExecutorLike {
     taskId: string;
     emitter?: SSEEmitter;
     apiKey?: string;
+    authToken?: string;
     agentTools: Map<string, AgentTool<any>[]>;
     systemPrompts: Map<string, string>;
     maxRetries?: number;
@@ -130,6 +132,7 @@ export class AMITaskExecutor implements TaskExecutorLike {
     this.taskId = opts.taskId;
     this.emitter = opts.emitter;
     this.apiKey = opts.apiKey;
+    this.authToken = opts.authToken;
     this.agentTools = opts.agentTools;
     this.systemPrompts = opts.systemPrompts;
     this.maxRetries = opts.maxRetries ?? 2;
@@ -1103,14 +1106,14 @@ No historical workflow guide available. Please explore and complete the task usi
    *
    * Conditions (matching Python _should_trigger_learning):
    * - Execution was not stopped/cancelled
-   * - userId is available
+   * - authToken is available (authenticated user)
    * - At least 1 browser subtask
    * - Total subtask count >= 2
    * - All browser subtasks succeeded
    */
   private shouldTriggerLearning(): boolean {
     if (this._stopped) return false;
-    if (!this.userId) return false;
+    if (!this.authToken) return false;
 
     const browserSubtasks = this._subtasks.filter(
       (s) => s.agentType === "browser",
@@ -1142,13 +1145,12 @@ No historical workflow guide available. Please explore and complete the task usi
 
     const payload = ExecutionDataCollector.toDict(taskData);
     const creds: RequestCredentials = {
-      apiKey: this.apiKey,
-      userId: this.userId,
+      token: this.authToken,
     };
 
     try {
       const result = (await getCloudClient().memoryLearn(
-        { user_id: this.userId!, execution_data: payload },
+        { execution_data: payload },
         creds,
       )) as Record<string, unknown>;
 
@@ -1218,8 +1220,8 @@ No historical workflow guide available. Please explore and complete the task usi
     recorder: BehaviorRecorder,
     subtask: AMISubtask,
   ): Promise<void> {
-    if (!this.userId) {
-      logger.debug("[OnlineLearning] No userId, skipping memory save");
+    if (!this.authToken) {
+      logger.debug("[OnlineLearning] No authToken, skipping memory save");
       return;
     }
 
@@ -1236,13 +1238,11 @@ No historical workflow guide available. Please explore and complete the task usi
       );
 
       const creds: RequestCredentials = {
-        apiKey: this.apiKey,
-        userId: this.userId,
+        token: this.authToken,
       };
 
       const result = await getCloudClient().memoryAdd(
         {
-          user_id: this.userId,
           operations,
           session_id: `${this.taskId}_${subtask.id}`,
           generate_embeddings: true,

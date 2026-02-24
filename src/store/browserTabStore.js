@@ -33,6 +33,8 @@ const useBrowserTabStore = create((set, get) => ({
     const info = await window.electronAPI?.getAllWebviewInfo();
     if (!info) return;
 
+    // Read current state AFTER await to avoid overwriting mode set by setViewMode
+    // during the async gap (race condition: setViewMode runs while getAllWebviewInfo is pending)
     const current = get().views;
     const updated = {};
     for (const [id, data] of Object.entries(info)) {
