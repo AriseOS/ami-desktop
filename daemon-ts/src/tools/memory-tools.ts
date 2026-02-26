@@ -12,7 +12,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type { SSEEmitter } from "../events/emitter.js";
 import { Action } from "../events/types.js";
-import { getAuthToken } from "../services/auth-manager.js";
+import { getCloudClient } from "../services/cloud-client.js";
 import { createLogger } from "../utils/logging.js";
 
 const logger = createLogger("memory-tools");
@@ -21,9 +21,9 @@ const logger = createLogger("memory-tools");
 
 export interface Intent {
   id: string;
-  description: string;
-  action_type: string;
-  selector?: string;
+  type: string;
+  description?: string;
+  text?: string;
   value?: string;
 }
 
@@ -35,16 +35,16 @@ export interface IntentSequence {
 
 export interface MemoryState {
   id: string;
-  url: string;
-  title: string;
+  page_url: string;
+  page_title?: string;
   description: string;
 }
 
 export interface MemoryAction {
   id: string;
-  source_id: string;
-  target_id: string;
-  action_type: string;
+  source: string;
+  target: string;
+  type: string;
   description?: string;
   trigger?: Record<string, unknown>;
   trigger_sequence_id?: string;
@@ -66,12 +66,26 @@ export interface CognitivePhrase {
   execution_plan: ExecutionStep[];
 }
 
+/**
+ * Raw response from POST /api/v1/memory/query.
+ *
+ * Backend returns:
+ *   - query_type: "task" | "navigation" | "action"
+ *   - metadata.memory_level: "L1" | "L2" | "L3"
+ *   - cognitive_phrase (singular, optional object — NOT an array)
+ *   - outgoing_actions (for action queries, NOT "actions")
+ */
 export interface QueryResult {
   success: boolean;
-  level?: string; // "L1" | "L2" | "L3"
-  cognitive_phrases?: CognitivePhrase[];
+  query_type?: string;
+  metadata?: Record<string, unknown>;
+  // Task query fields
+  cognitive_phrase?: CognitivePhrase;
+  execution_plan?: ExecutionStep[];
+  // Common fields
   states?: MemoryState[];
   actions?: MemoryAction[];
+  outgoing_actions?: MemoryAction[];
   intent_sequences?: IntentSequence[];
   error?: string;
 }
@@ -86,11 +100,9 @@ export interface PlanStepData {
 }
 
 export interface MemoryPlanData {
-  task: string;
-  coverage: string;
-  preferences: string[];
-  uncovered_steps: string[];
   steps: PlanStepData[];
+  preferences: string[];
+  context_hints: string[];
 }
 
 export interface MemoryPlanResult {
@@ -104,38 +116,6 @@ const queryPageOpsSchema = Type.Object({
   url: Type.String({ description: "The URL of the current page to query operations for" }),
 });
 
-// ===== Cloud Client Helpers =====
-
-async function memoryPost(
-  baseUrl: string,
-  path: string,
-  body: Record<string, unknown>,
-): Promise<unknown> {
-  const url = `${baseUrl}${path}`;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  const token = await getAuthToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const resp = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120_000),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`Memory API error ${resp.status}: ${text}`);
-  }
-
-  return resp.json();
-}
-
 // ===== Format Helpers =====
 
 export function formatCognitivePhrase(phrase: CognitivePhrase): string {
@@ -147,7 +127,7 @@ export function formatCognitivePhrase(phrase: CognitivePhrase): string {
   if (phrase.states?.length) {
     lines.push("### Pages:");
     for (const state of phrase.states) {
-      lines.push(`- [${state.id}] ${state.title} (${state.url})`);
+      lines.push(`- [${state.id}] ${state.page_title ?? ""} (${state.page_url})`);
     }
     lines.push("");
   }
@@ -155,9 +135,9 @@ export function formatCognitivePhrase(phrase: CognitivePhrase): string {
   // Format execution plan
   for (const step of phrase.execution_plan) {
     const state = phrase.states?.find((s) => s.id === step.state_id);
-    const title = state ? state.title : step.state_id;
+    const title = state ? (state.page_title ?? state.page_url) : step.state_id;
     lines.push(`### Step ${step.index}: ${title}`);
-    if (state?.url) lines.push(`URL: ${state.url}`);
+    if (state?.page_url) lines.push(`URL: ${state.page_url}`);
 
     if (step.in_page_sequence_ids?.length) {
       lines.push(`  Page operations: ${step.in_page_sequence_ids.join(", ")}`);
@@ -173,16 +153,33 @@ export function formatCognitivePhrase(phrase: CognitivePhrase): string {
 }
 
 export function formatTaskResult(result: QueryResult): string {
-  if (!result.success || !result.cognitive_phrases?.length) {
+  const level = getTaskMemoryLevel(result);
+  const phrase = result.cognitive_phrase;
+
+  if (!result.success || (!phrase && !result.states?.length)) {
     return "No memory found for this task.";
   }
 
   const lines: string[] = [];
-  lines.push(`Memory Level: ${result.level ?? "unknown"}`);
+  lines.push(`Memory Level: ${level}`);
   lines.push("");
 
-  for (const phrase of result.cognitive_phrases) {
-    lines.push(formatCognitivePhrase(phrase));
+  if (phrase) {
+    // Backend returns states/actions at top level, not nested in phrase.
+    // Enrich phrase with top-level data so formatCognitivePhrase can render them.
+    const enriched: CognitivePhrase = {
+      ...phrase,
+      states: phrase.states ?? result.states ?? [],
+      actions: phrase.actions ?? result.actions ?? [],
+      execution_plan: phrase.execution_plan ?? result.execution_plan ?? [],
+    };
+    lines.push(formatCognitivePhrase(enriched));
+  } else if (result.states?.length) {
+    // L2 path-based result — no phrase, but has states/actions
+    lines.push("## Navigation Path:");
+    for (const state of result.states) {
+      lines.push(`- [${state.id}] ${state.page_title ?? ""} (${state.page_url})`);
+    }
   }
 
   return lines.join("\n");
@@ -196,14 +193,16 @@ export function formatPageOperations(result: QueryResult): string {
     for (const seq of result.intent_sequences) {
       lines.push(`- ${seq.description}`);
       for (const intent of seq.intents) {
-        lines.push(`  ${intent.action_type}: ${intent.description}`);
+        lines.push(`  ${intent.type}: ${intent.description ?? intent.text ?? ""}`);
       }
     }
   }
 
-  if (result.actions?.length) {
+  // Backend returns "outgoing_actions" for action queries, "actions" for others
+  const navActions = result.outgoing_actions ?? result.actions;
+  if (navActions?.length) {
     lines.push("\n## Navigation Actions:");
-    for (const action of result.actions) {
+    for (const action of navActions) {
       lines.push(`- ${action.description}`);
     }
   }
@@ -214,29 +213,30 @@ export function formatPageOperations(result: QueryResult): string {
 // ===== Memory Level Helpers =====
 
 export function isTaskMemoryHit(result: QueryResult): boolean {
-  return result.success && (result.level === "L1" || result.level === "L2");
+  const level = getTaskMemoryLevel(result);
+  return result.success && (level === "L1" || level === "L2");
 }
 
 export function getTaskMemoryLevel(
   result: QueryResult,
 ): "L1" | "L2" | "L3" {
   if (!result.success) return "L3";
-  return (result.level as "L1" | "L2" | "L3") ?? "L3";
+  const level = result.metadata?.memory_level as string | undefined;
+  if (level === "L1" || level === "L2" || level === "L3") return level;
+  return "L3";
 }
 
 // ===== MemoryToolkit Class =====
 
 export class MemoryToolkit {
-  private baseUrl: string;
   private taskId: string;
   private emitter?: SSEEmitter;
 
   constructor(opts: {
-    memoryApiBaseUrl: string;
+    memoryApiBaseUrl?: string; // deprecated — CloudClient reads from config
     taskId: string;
     emitter?: SSEEmitter;
   }) {
-    this.baseUrl = opts.memoryApiBaseUrl;
     this.taskId = opts.taskId;
     this.emitter = opts.emitter;
   }
@@ -254,18 +254,18 @@ export class MemoryToolkit {
     });
 
     try {
-      const data = (await memoryPost(
-        this.baseUrl,
-        "/api/v1/memory/query",
+      const data = (await getCloudClient().memoryQuery(
         { target: task, as_type: "task", top_k: 5 },
       )) as QueryResult;
 
       this.emitter?.emit({
         action: Action.memory_result,
         task_id: this.taskId,
-        paths_count: data.cognitive_phrases?.length ?? 0,
-        paths: (data.cognitive_phrases ?? []) as unknown as Record<string, unknown>[],
-        has_workflow: !!data.cognitive_phrases?.length,
+        paths_count: data.cognitive_phrase ? 1 : 0,
+        paths: data.cognitive_phrase
+          ? [data.cognitive_phrase as unknown as Record<string, unknown>]
+          : [],
+        has_workflow: !!data.cognitive_phrase || !!data.states?.length,
         method: "task_query",
       });
 
@@ -283,16 +283,12 @@ export class MemoryToolkit {
     logger.info({ startState, endState }, "Querying navigation memory");
 
     try {
-      return (await memoryPost(
-        this.baseUrl,
-        "/api/v1/memory/query",
-        {
-          target: `${startState} -> ${endState}`,
-          as_type: "navigation",
-          start_state: startState,
-          end_state: endState,
-        },
-      )) as QueryResult;
+      return (await getCloudClient().memoryQuery({
+        target: `${startState} -> ${endState}`,
+        as_type: "navigation",
+        start_state: startState,
+        end_state: endState,
+      })) as QueryResult;
     } catch (err) {
       logger.error({ err }, "Navigation memory query failed");
       return { success: false, error: String(err) };
@@ -306,15 +302,11 @@ export class MemoryToolkit {
     logger.info({ currentState, target }, "Querying action memory");
 
     try {
-      return (await memoryPost(
-        this.baseUrl,
-        "/api/v1/memory/query",
-        {
-          target: currentState,
-          as_type: "actions",
-          current_state: currentState,
-        },
-      )) as QueryResult;
+      return (await getCloudClient().memoryQuery({
+        target: target ?? currentState,
+        as_type: "actions",
+        current_state: currentState,
+      })) as QueryResult;
     } catch (err) {
       logger.error({ err }, "Action memory query failed");
       return { success: false, error: String(err) };
@@ -325,11 +317,7 @@ export class MemoryToolkit {
     logger.info({ task: task.slice(0, 100) }, "Planning task with memory");
 
     try {
-      return (await memoryPost(
-        this.baseUrl,
-        "/api/v1/memory/plan",
-        { task },
-      )) as MemoryPlanResult;
+      return (await getCloudClient().memoryPlan({ task })) as MemoryPlanResult;
     } catch (err) {
       logger.error({ err }, "Memory plan request failed");
       const isTimeout =
@@ -340,11 +328,9 @@ export class MemoryToolkit {
       }
       return {
         memory_plan: {
-          task,
-          coverage: "none",
-          preferences: [],
-          uncovered_steps: [task],
           steps: [],
+          preferences: [],
+          context_hints: [],
         },
       };
     }
@@ -371,7 +357,7 @@ export class MemoryToolkit {
           task_id: this.taskId,
           event_type: "page_operations_queried",
           data: { url, found: result.success },
-          memory_level: result.level,
+          memory_level: getTaskMemoryLevel(result),
         });
 
         return {
@@ -388,7 +374,7 @@ export class MemoryToolkit {
 // ===== Convenience Factory =====
 
 export function createMemoryTools(opts: {
-  memoryApiBaseUrl: string;
+  memoryApiBaseUrl?: string; // deprecated — CloudClient reads from config
   taskId: string;
   emitter?: SSEEmitter;
 }): { toolkit: MemoryToolkit; tools: AgentTool<any>[] } {

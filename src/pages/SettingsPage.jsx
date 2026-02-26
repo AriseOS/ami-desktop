@@ -27,9 +27,6 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
   const [localModel, setLocalModel] = useState('');
   const [savingApiConfig, setSavingApiConfig] = useState(false);
 
-  // Theme/appearance settings from store
-  const appearance = useStore(settingsStore, (state) => state.appearance);
-  const setAppearance = useStore(settingsStore, (state) => state.setAppearance);
   const autoConfirmDelay = useStore(settingsStore, (state) => state.autoConfirmDelay);
   const setAutoConfirmDelay = useStore(settingsStore, (state) => state.setAutoConfirmDelay);
   const showTokenUsage = useStore(settingsStore, (state) => state.showTokenUsage);
@@ -298,9 +295,11 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
                 </div>
               )}
             </div>
-            <button className="btn btn-danger" onClick={handleLogoutClick}>
-              <Icon name="logOut" size={16} /> {t('settings.logout')}
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button className="btn btn-danger" onClick={handleLogoutClick}>
+                <Icon name="logOut" size={16} /> {t('settings.logout')}
+              </button>
+            </div>
           </section>
         )}
 
@@ -309,7 +308,7 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
           <h2 className="section-title">{t('settings.language')}</h2>
           <div className="info-card">
             <p style={{ marginBottom: '12px' }}>{t('settings.languageDesc')}</p>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
               <button
                 type="button"
                 className={`btn ${language === 'en' ? 'btn-primary' : 'btn-secondary'}`}
@@ -323,48 +322,6 @@ function SettingsPage({ navigate, showStatus, onLogout, language, onLanguageChan
                 onClick={() => handleLanguageChange('zh')}
               >
                 简体中文
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Appearance Section */}
-        <section className="settings-section">
-          <h2 className="section-title">{t('settings.appearance')}</h2>
-          <div className="info-card">
-            <p style={{ marginBottom: '12px' }}>{t('settings.appearanceDesc')}</p>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className={`btn ${appearance === 'light' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setAppearance('light')}
-              >
-                <Icon name="sun" size={16} />
-                {t('settings.themeLight')}
-              </button>
-              <button
-                type="button"
-                className={`btn ${appearance === 'dark' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setAppearance('dark')}
-              >
-                <Icon name="moon" size={16} />
-                {t('settings.themeDark')}
-              </button>
-              <button
-                type="button"
-                className={`btn ${appearance === 'system' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setAppearance('system')}
-              >
-                <Icon name="monitor" size={16} />
-                {t('settings.themeSystem')}
-              </button>
-              <button
-                type="button"
-                className={`btn ${appearance === 'transparent' ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setAppearance('transparent')}
-              >
-                <Icon name="layers" size={16} />
-                {t('settings.themeTransparent')}
               </button>
             </div>
           </div>

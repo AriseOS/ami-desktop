@@ -1,8 +1,9 @@
 /**
  * Memory Routes — Proxy to cloud backend memory API.
  *
- * POST   /api/v1/memory/add
  * POST   /api/v1/memory/query
+ * POST   /api/v1/memory/learn
+ * POST   /api/v1/memory/recall
  * GET    /api/v1/memory/stats
  * DELETE /api/v1/memory
  * GET    /api/v1/memory/phrases
@@ -42,19 +43,6 @@ function getErrorStatus(err: unknown): number {
   return 500;
 }
 
-// ===== POST /add =====
-
-memoryRouter.post("/add", async (req: Request, res: Response) => {
-  try {
-    const client = getCloudClient();
-    const creds = getCredentials(req);
-    const result = await client.memoryAdd(req.body, creds);
-    res.json(result);
-  } catch (err) {
-    res.status(getErrorStatus(err)).json({ error: String(err) });
-  }
-});
-
 // ===== POST /query =====
 
 memoryRouter.post("/query", async (req: Request, res: Response) => {
@@ -62,6 +50,32 @@ memoryRouter.post("/query", async (req: Request, res: Response) => {
     const client = getCloudClient();
     const creds = getCredentials(req);
     const result = await client.memoryQuery(req.body, creds);
+    res.json(result);
+  } catch (err) {
+    res.status(getErrorStatus(err)).json({ error: String(err) });
+  }
+});
+
+// ===== POST /learn =====
+
+memoryRouter.post("/learn", async (req: Request, res: Response) => {
+  try {
+    const client = getCloudClient();
+    const creds = getCredentials(req);
+    const result = await client.memoryLearn(req.body, creds);
+    res.json(result);
+  } catch (err) {
+    res.status(getErrorStatus(err)).json({ error: String(err) });
+  }
+});
+
+// ===== POST /recall =====
+
+memoryRouter.post("/recall", async (req: Request, res: Response) => {
+  try {
+    const client = getCloudClient();
+    const creds = getCredentials(req);
+    const result = await client.memoryRecall(req.body, creds);
     res.json(result);
   } catch (err) {
     res.status(getErrorStatus(err)).json({ error: String(err) });

@@ -4,7 +4,7 @@
  * Ported from CloudClient in Python daemon.
  *
  * Endpoints: check_version, memory/plan, memory/query, memory/learn,
- * memory/add, memory/stats, memory/phrases, recordings, intent-builder, etc.
+ * memory/recall, memory/stats, memory/phrases, recordings, intent-builder, etc.
  */
 
 import { createLogger } from "../utils/logging.js";
@@ -150,8 +150,8 @@ export class CloudClient {
     return this.request("POST", "/api/v1/memory/learn", body, undefined, creds, 120_000);
   }
 
-  async memoryAdd(body: Record<string, unknown>, creds?: RequestCredentials): Promise<unknown> {
-    return this.post("/api/v1/memory/add", body, creds);
+  async memoryRecall(body: Record<string, unknown>, creds?: RequestCredentials): Promise<unknown> {
+    return this.post("/api/v1/memory/recall", body, creds);
   }
 
   async memoryStats(creds?: RequestCredentials): Promise<unknown> {

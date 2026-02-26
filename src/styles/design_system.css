@@ -81,6 +81,7 @@
 
   /* Aliases for compatibility */
   --primary-color: var(--primary-main);
+  --primary-dark: var(--primary-hover);
   --primary-color-dark: var(--primary-hover);
   --primary-color-alpha: var(--color-primary-100);
 
@@ -240,6 +241,16 @@
 .btn-ghost:hover {
   background-color: var(--color-gray-100);
   color: var(--text-primary);
+}
+
+.btn-sm {
+  padding: var(--space-1) var(--space-4);
+  font-size: 14px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-danger {

@@ -8,8 +8,8 @@ function RecordingAnalysisPage({ session, pageData, onNavigate, showStatus }) {
   const { t } = useTranslation();
   const userId = session?.username;
   const taskDescription = pageData?.taskDescription || '';
-  const [isAdding, setIsAdding] = useState(false);
-  const [isAdded, setIsAdded] = useState(false);
+  const [isLearning, setIsLearning] = useState(false);
+  const [isLearned, setIsLearned] = useState(false);
   const [operations, setOperations] = useState([]);
   const [loadingOps, setLoadingOps] = useState(true);
   const [recordingName, setRecordingName] = useState(pageData?.name || '');
@@ -80,27 +80,25 @@ function RecordingAnalysisPage({ session, pageData, onNavigate, showStatus }) {
     );
   };
 
-  const handleAddToMemory = async () => {
+  const handleLearnToMemory = async () => {
     try {
-      setIsAdding(true);
+      setIsLearning(true);
 
-      const result = await api.addToMemory(userId, {
-        recordingId: sessionId,
-        generateEmbeddings: true
-      });
+      const task = recordingName || taskDescription || 'Recorded browser workflow';
+      const result = await api.learnFromRecording(task, operations);
 
-      setIsAdded(true);
+      setIsLearned(true);
       showStatus(t('analysis.addedToMemory', {
-        states: result.states_added || 0,
-        merged: result.states_merged || 0,
-        sequences: result.intent_sequences_added || 0
+        states: result.phrase_ids?.length || 0,
+        merged: 0,
+        sequences: 0
       }), "success");
 
     } catch (error) {
-      console.error("Add to memory error:", error);
+      console.error("Learn to memory error:", error);
       showStatus(t('analysis.addToMemoryFailed', { error: error.message }), "error");
     } finally {
-      setIsAdding(false);
+      setIsLearning(false);
     }
   };
 
@@ -251,16 +249,16 @@ function RecordingAnalysisPage({ session, pageData, onNavigate, showStatus }) {
           </button>
           <button
             className="btn-primary"
-            onClick={handleAddToMemory}
-            disabled={isAdding || isAdded}
+            onClick={handleLearnToMemory}
+            disabled={isLearning || isLearned || operations.length === 0}
           >
-            <span className="btn-icon"><Icon icon={isAdded ? "checkCircle" : "layers"} /></span>
-            <span>{isAdding ? t('analysis.addingToMemory') : (isAdded ? t('common.success') : t('analysis.addToMemoryBtn'))}</span>
+            <span className="btn-icon"><Icon icon={isLearned ? "checkCircle" : "layers"} /></span>
+            <span>{isLearning ? t('analysis.addingToMemory') : (isLearned ? t('common.success') : t('analysis.addToMemoryBtn'))}</span>
           </button>
           <button
             className="btn-secondary"
             onClick={() => onNavigate("main")}
-            disabled={isAdding}
+            disabled={isLearning}
           >
             {t('recording.reRecord')}
           </button>

@@ -38,6 +38,7 @@ llm:
   # Migration: Changed from old API Proxy to CRS
   use_proxy: true
   proxy_url: https://llm.ariseos.com  # sub2api LLM gateway (no /api prefix — gateway routes are at /v1/messages)
+  # proxy_url: http:localhost:8080  # sub2api LLM gateway (no /api prefix — gateway routes are at /v1/messages)
 
 # Personal Memory Configuration
 # Local graph database for storing user's operation knowledge

@@ -838,25 +838,58 @@ export const api = {
   // ============================================================================
 
   /**
-   * Add recording to user's workflow memory
+   * Learn from recording operations via /memory/learn.
+   * Converts raw recording operations to trace steps and sends to the unified learn endpoint.
    *
-   * @param {string} userId - User ID
+   * @param {string} task - Task description for the recording
+   * @param {Array} operations - Raw recording operations [{type, url, text, value, ...}]
    * @param {object} options - Options
-   * @param {string} options.recordingId - Recording ID to load operations from
-   * @param {Array} options.operations - Direct operations array (alternative to recordingId)
-   * @param {string} options.sessionId - Session identifier
-   * @param {boolean} options.generateEmbeddings - Whether to generate embeddings for semantic search
-   * @returns {Promise<object>} Result with states_added, states_merged, etc.
+   * @param {string} options.source - Source identifier (default: "ami-desktop")
+   * @returns {Promise<object>} Learn result with phrase_created, phrase_ids, etc.
    */
-  async addToMemory(userId, { recordingId = null, operations = null, sessionId = null, generateEmbeddings = false } = {}) {
-    return await this.callAppBackend('/api/v1/memory/add', {
+  async learnFromRecording(task, operations, { source = 'ami-desktop' } = {}) {
+    // Map recording operation types to valid trace actions
+    const actionMap = {
+      click: 'click',
+      type: 'type',
+      input: 'type',
+      navigate: 'navigate',
+      scroll: 'scroll',
+      select: 'select',
+      submit: 'submit',
+      enter: 'submit',
+      change: 'type',
+      keydown: null,   // skip — not a meaningful trace action
+      hover: null,     // skip
+      copy: null,      // skip
+      paste: null,     // skip
+      dataload: null,  // skip
+    };
+
+    const steps = [];
+    let lastUrl = '';
+    for (const op of operations) {
+      const mapped = actionMap[op.type];
+      if (!mapped) continue;
+      const url = op.url || op.page_url || lastUrl;
+      if (!url) continue;
+      lastUrl = url;
+      steps.push({
+        url,
+        action: mapped,
+        target: op.text || op.selector || undefined,
+        value: op.value || undefined,
+      });
+    }
+
+    return await this.callAppBackend('/api/v1/memory/learn', {
       method: 'POST',
       body: JSON.stringify({
-        user_id: userId,
-        recording_id: recordingId,
-        operations: operations,
-        session_id: sessionId,
-        generate_embeddings: generateEmbeddings
+        type: 'browser_workflow',
+        task: task || 'Recorded browser workflow',
+        success: true,
+        steps,
+        source,
       })
     });
   },

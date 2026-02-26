@@ -169,12 +169,11 @@
 }
 
 .graph-view {
-  flex: 1;
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  min-height: 400px;
   height: 400px;
   width: 100%;
 }

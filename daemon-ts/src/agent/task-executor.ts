@@ -37,7 +37,6 @@ import { getCloudClient } from "../services/cloud-client.js";
 import { hasSession } from "../services/auth-manager.js";
 import { agentPrompt, requireApiKey, debugStreamSimple } from "../utils/agent-helpers.js";
 import { createLogger } from "../utils/logging.js";
-import { BehaviorRecorder } from "../browser/behavior-recorder.js";
 import { BrowserSession } from "../browser/browser-session.js";
 import {
   updateSubtaskState as persistSubtaskState,
@@ -318,8 +317,10 @@ export class AMITaskExecutor implements TaskExecutorLike {
         this.userRequest,
         this._subtasks,
       );
-      this.learnFromExecution(taskData).catch((err) => {
-        logger.warn({ err }, "Post-execution learning failed");
+
+      const traceData = ExecutionDataCollector.buildTrace(taskData);
+      this.learnFromTrace(traceData).catch((err) => {
+        logger.warn({ err }, "Post-execution trace learning failed");
       });
     }
 
@@ -476,20 +477,11 @@ export class AMITaskExecutor implements TaskExecutorLike {
     this.emitSubtaskRunning(subtask);
 
     // Execute with retries
-    // Recorder is outside the while loop so the outer finally can clean it up
-    // (matches Python ami_task_executor.py:497-622 structure)
-    let recorder: BehaviorRecorder | null = null;
-
     try {
       while (subtask.retryCount <= this.maxRetries) {
         try {
           if (this._stopped) return false;
           await this.waitIfPaused();
-
-          // Online Learning: fresh recorder for each attempt (browser subtasks only)
-          if (subtask.agentType === "browser" && borrowedSessionId) {
-            recorder = await this.startBehaviorRecorder(borrowedSessionId);
-          }
 
           logger.info(
             {
@@ -585,11 +577,6 @@ export class AMITaskExecutor implements TaskExecutorLike {
               logger.warn({ err: e }, "Failed to collect execution data");
             }
 
-            // Online Learning: save recorded operations to Memory on success
-            if (recorder) {
-              await this.saveRecordedOperations(recorder, subtask);
-            }
-
             logger.info(
               {
                 subtaskId: subtask.id,
@@ -604,12 +591,6 @@ export class AMITaskExecutor implements TaskExecutorLike {
             this._runningAgents.delete(subtask.id);
           }
         } catch (e: any) {
-          // Online Learning: stop recorder from failed attempt before retry
-          if (recorder) {
-            await this.stopBehaviorRecorder(recorder);
-            recorder = null;
-          }
-
           // Remove dynamic subtasks added during this failed attempt
           // to prevent duplicates on retry (matches Python _remove_dynamic_subtasks)
           this.removeDynamicSubtasks(subtask.id);
@@ -641,12 +622,6 @@ export class AMITaskExecutor implements TaskExecutorLike {
         subtask.state = SubtaskState.FAILED;
         subtask.error = subtask.error ?? "Cancelled";
         this.emitSubtaskState(subtask);
-      }
-
-      // Online Learning: stop recorder to release CDP session (runs once at exit)
-      if (recorder) {
-        await this.stopBehaviorRecorder(recorder);
-        recorder = null;
       }
 
       // Return sessionId to pool for reuse (session stays alive, page stays claimed)
@@ -1128,123 +1103,39 @@ No historical workflow guide available. Please explore and complete the task usi
   }
 
   /**
-   * Fire-and-forget: send execution data to Cloud Backend for learning.
+   * Fire-and-forget: send simplified trace to Cloud Backend for learning.
    */
-  private async learnFromExecution(
-    taskData: import("./schemas.js").TaskExecutionData,
+  private async learnFromTrace(
+    traceData: import("./execution-data-collector.js").TraceData,
   ): Promise<void> {
+    if (traceData.steps.length === 0) {
+      logger.debug("No trace steps to learn from, skipping");
+      return;
+    }
+
     logger.info(
       {
         taskId: this.taskId,
-        subtasksCollected: taskData.subtasks.length,
+        stepCount: traceData.steps.length,
       },
-      "Triggering post-execution learning",
+      "Triggering learn-from-trace",
     );
 
-    const payload = ExecutionDataCollector.toDict(taskData);
-
     try {
-      // CloudClient auto-injects daemon-managed token
       const result = (await getCloudClient().memoryLearn(
-        { execution_data: payload },
+        traceData as unknown as Record<string, unknown>,
       )) as Record<string, unknown>;
 
       logger.info(
         {
           phraseCreated: result.phrase_created,
-          phraseId: result.phrase_id,
+          phraseIds: result.phrase_ids,
+          processingTimeMs: result.processing_time_ms,
         },
-        "Post-execution learning result",
+        "Learn-from-trace result",
       );
     } catch (err) {
-      // Fire-and-forget: log but don't propagate
-      logger.warn({ err }, "Post-execution learning request failed");
-    }
-  }
-
-  // ===== Online Learning (BehaviorRecorder) =====
-
-  /**
-   * Start BehaviorRecorder for a browser subtask.
-   * Returns the recorder instance, or null if startup fails.
-   * All errors are caught — recorder failure must not block task execution.
-   */
-  private async startBehaviorRecorder(sessionId?: string): Promise<BehaviorRecorder | null> {
-    try {
-      const lookupId = sessionId ?? this.taskId;
-      let session = BrowserSession.getExistingInstance(lookupId);
-      if (!session && !sessionId) {
-        // Sequential mode: fall back to daemon session
-        session = BrowserSession.getDaemonSession();
-      }
-      // For parallel subtasks (sessionId provided), the BrowserSession may not exist yet
-      // (created lazily on first tool use). Skip recorder rather than
-      // falling back to daemon session which would mix parallel recordings.
-      if (!session) {
-        logger.debug({ lookupId }, "[OnlineLearning] No BrowserSession available, skipping recorder");
-        return null;
-      }
-
-      const recorder = new BehaviorRecorder(/* enableSnapshotCapture */ false);
-      await recorder.startRecording(session);
-      logger.info("[OnlineLearning] Recorder started");
-      return recorder;
-    } catch (e) {
-      logger.warn({ err: e }, "[OnlineLearning] Failed to start recorder");
-      return null;
-    }
-  }
-
-  /**
-   * Stop a running BehaviorRecorder.
-   */
-  private async stopBehaviorRecorder(recorder: BehaviorRecorder): Promise<void> {
-    try {
-      await recorder.stopRecording();
-      logger.info("[OnlineLearning] Recorder stopped");
-    } catch (e) {
-      logger.warn({ err: e }, "[OnlineLearning] Failed to stop recorder");
-    }
-  }
-
-  /**
-   * Save recorded operations to Memory via CloudClient.
-   * Only called when a subtask succeeds (SubtaskState.DONE).
-   */
-  private async saveRecordedOperations(
-    recorder: BehaviorRecorder,
-    subtask: AMISubtask,
-  ): Promise<void> {
-    if (!hasSession()) {
-      logger.debug("[OnlineLearning] No session, skipping memory save");
-      return;
-    }
-
-    const operations = recorder.getOperations();
-    if (operations.length === 0) {
-      logger.debug("[OnlineLearning] No operations recorded, skipping");
-      return;
-    }
-
-    try {
-      logger.info(
-        { operationCount: operations.length, subtaskId: subtask.id },
-        "[OnlineLearning] Saving operations to memory",
-      );
-
-      // CloudClient auto-injects daemon-managed token
-      const result = await getCloudClient().memoryAdd(
-        {
-          operations,
-          session_id: `${this.taskId}_${subtask.id}`,
-          generate_embeddings: true,
-          skip_cognitive_phrase: true,
-        },
-      );
-
-      logger.info({ result }, "[OnlineLearning] Memory save result");
-    } catch (e) {
-      logger.warn({ err: e }, "[OnlineLearning] Failed to save to memory");
+      logger.warn({ err }, "Learn-from-trace request failed");
     }
   }
 

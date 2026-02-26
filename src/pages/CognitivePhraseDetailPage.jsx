@@ -271,7 +271,7 @@ function CognitivePhraseDetailPage({ session, onNavigate, showStatus, phraseId, 
             </span>
           </div>
         </div>
-        <div className="graph-view">
+        <div className="graph-view" style={{ width: '100%', height: 400 }}>
           {nodes.length > 0 ? (
             <ReactFlow
               nodes={nodes}

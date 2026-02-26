@@ -307,4 +307,229 @@ export class ExecutionDataCollector {
     const match = toolResultText.match(/URL:\*?\*?\s*(https?:\/\/\S+)/);
     return match ? match[1] : "";
   }
+
+  // ===== Conversation Trace Generation =====
+
+  /**
+   * Extract user/assistant text turns from pi-agent-core messages.
+   *
+   * Filters out tool_use/toolResult details — only keeps human-readable
+   * text content from user and assistant messages.
+   *
+   * pi-agent-core message format:
+   * - UserMessage: role="user", content: string | ContentBlock[]
+   * - AssistantMessage: role="assistant", content: (TextContent | ThinkingContent | ToolCall)[]
+   * - ToolResultMessage: role="toolResult" (skipped)
+   *
+   * @param messages - agent.state.messages from pi-agent-core Agent
+   * @param activeUrls - Optional list of active browser URLs for session_context
+   * @param activeBrowserTask - Optional description of active browser task
+   */
+  static buildConversationTrace(
+    messages: any[],
+    activeUrls?: string[],
+    activeBrowserTask?: string,
+  ): ConversationTrace | null {
+    const turns: ConversationTurn[] = [];
+
+    // Backend schema enforces max_length=10000 on ConversationTurn.text
+    const MAX_TURN_TEXT = 10000;
+
+    for (const msg of messages) {
+      if (msg.role === "user") {
+        // User messages: extract text content
+        const text = ExecutionDataCollector.extractMessageText(msg);
+        if (!text) continue;
+
+        // Filter out orchestrator-injected synthetic messages
+        if (
+          text.startsWith("[EXECUTION COMPLETE:") ||
+          text.startsWith("[USER MESSAGE]") ||
+          text.startsWith("[SYSTEM]") ||
+          text.startsWith("[TASK")
+        ) {
+          // Extract the real user message from "[USER MESSAGE]\n<actual text>" if present
+          const userMsgMatch = text.match(/\[USER MESSAGE\]\n([\s\S]+)/);
+          if (userMsgMatch) {
+            turns.push({ role: "user", text: userMsgMatch[1].trim().slice(0, MAX_TURN_TEXT) });
+          }
+          continue;
+        }
+
+        turns.push({ role: "user", text: text.slice(0, MAX_TURN_TEXT) });
+      } else if (msg.role === "assistant") {
+        // Assistant messages: extract only text blocks (skip toolCall, thinking)
+        const text = ExecutionDataCollector.extractAssistantText(msg);
+        if (text) {
+          turns.push({ role: "assistant", text: text.slice(0, MAX_TURN_TEXT) });
+        }
+      }
+      // Skip toolResult messages — they are internal tool call results
+    }
+
+    if (turns.length === 0) return null;
+
+    const trace: ConversationTrace = { turns };
+
+    // Attach session_context if any URLs or browser task are active
+    if ((activeUrls && activeUrls.length > 0) || activeBrowserTask) {
+      trace.session_context = {};
+      if (activeBrowserTask) {
+        trace.session_context.active_browser_task = activeBrowserTask;
+      }
+      if (activeUrls && activeUrls.length > 0) {
+        trace.session_context.active_urls = activeUrls;
+      }
+    }
+
+    return trace;
+  }
+
+  /**
+   * Extract text from a user message (string or content blocks).
+   */
+  private static extractMessageText(msg: any): string {
+    if (typeof msg.content === "string") {
+      return msg.content.trim();
+    }
+    if (Array.isArray(msg.content)) {
+      return msg.content
+        .filter((b: any) => typeof b === "object" && b !== null && b.type === "text")
+        .map((b: any) => b.text ?? "")
+        .join("\n")
+        .trim();
+    }
+    return "";
+  }
+
+  /**
+   * Extract only text content from an assistant message (skip toolCall/thinking blocks).
+   */
+  private static extractAssistantText(msg: any): string {
+    const content = msg.content;
+    if (!Array.isArray(content)) return "";
+
+    return content
+      .filter((b: any) => typeof b === "object" && b !== null && b.type === "text")
+      .map((b: any) => b.text ?? "")
+      .join("\n")
+      .trim();
+  }
+
+  // ===== Browser Trace Generation =====
+
+  /**
+   * Build a simplified trace from TaskExecutionData for the learn-from-trace endpoint.
+   *
+   * Extracts browser tool records and maps them back to trace actions.
+   * Inserts synthetic `navigate` steps when URL changes between records.
+   */
+  static buildTrace(data: TaskExecutionData): TraceData {
+    const toolToAction: Record<string, string> = {
+      browser_visit_page: "navigate",
+      browser_click: "click",
+      browser_type: "type",
+      browser_scroll: "scroll",
+      browser_select: "select",
+      browser_enter: "submit",
+      search_google: "navigate",
+    };
+
+    const steps: TraceStep[] = [];
+    let lastUrl = "";
+
+    for (const subtask of data.subtasks) {
+      if (subtask.agentType !== "browser") continue;
+
+      for (const record of subtask.toolRecords) {
+        const action = toolToAction[record.toolName];
+        if (!action) continue;
+
+        const url = record.currentUrl || "";
+
+        // Insert navigate step when URL changes (but not for navigate actions themselves)
+        if (url && url !== lastUrl && action !== "navigate") {
+          steps.push({ url, action: "navigate" });
+        }
+
+        const step: TraceStep = { url, action };
+
+        // Extract target and value from inputSummary JSON
+        if (record.inputSummary) {
+          try {
+            const input = JSON.parse(record.inputSummary);
+            if (input.element_description) {
+              step.target = input.element_description;
+            }
+            if (input.text) {
+              step.value = input.text;
+            }
+            if (input.url && action === "navigate") {
+              step.url = input.url;
+            }
+            if (input.query && record.toolName === "search_google") {
+              step.value = input.query;
+            }
+            if (input.direction && action === "scroll") {
+              step.target = input.direction;
+            }
+            if (input.value && action === "select") {
+              step.value = input.value;
+            }
+          } catch {
+            // inputSummary is not valid JSON — skip extraction
+          }
+        }
+
+        steps.push(step);
+        lastUrl = step.url || url;
+      }
+    }
+
+    // Append done marker
+    if (steps.length > 0) {
+      steps.push({ url: lastUrl, action: "done" });
+    }
+
+    const success = data.completedCount > 0 && data.failedCount === 0;
+
+    return {
+      type: "browser_workflow",
+      task: data.userRequest,
+      success,
+      steps,
+      source: "ami-desktop",
+    };
+  }
+}
+
+// ===== Trace Types =====
+
+export interface TraceStep {
+  url: string;
+  action: string;
+  target?: string;
+  value?: string;
+}
+
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  text: string;
+}
+
+export interface ConversationTrace {
+  turns: ConversationTurn[];
+  session_context?: {
+    active_browser_task?: string;
+    active_urls?: string[];
+  };
+}
+
+export interface TraceData {
+  type: string;
+  task: string;
+  success: boolean;
+  steps: TraceStep[];
+  source: string;
+  conversation?: ConversationTrace;
 }

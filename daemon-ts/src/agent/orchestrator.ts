@@ -47,6 +47,9 @@ import {
 } from "../services/task-state-persistence.js";
 import type { TaskStateSnapshot } from "./schemas.js";
 import { createSearchTools } from "../tools/search-tools.js";
+import { ExecutionDataCollector } from "./execution-data-collector.js";
+import { getCloudClient } from "../services/cloud-client.js";
+import { hasSession } from "../services/auth-manager.js";
 
 const logger = createLogger("orchestrator");
 
@@ -747,6 +750,16 @@ export class OrchestratorSession {
     }
 
     logger.info("Session ending");
+
+    // Post-session: send conversation trace for MemoryFact extraction.
+    // Must await before returning — caller's finally block calls cleanup().
+    // Browser workflow traces are already sent by TaskExecutor.learnFromTrace().
+    try {
+      await this.sendConversationTrace();
+    } catch (err) {
+      logger.warn({ err }, "Post-session conversation trace failed");
+    }
+
     return this.lastExecutionResult;
   }
 
@@ -1317,6 +1330,60 @@ export class OrchestratorSession {
     for (const [, handle] of this.runningExecutors) {
       handle.executor?.resume();
     }
+  }
+
+  // ===== Post-Session Conversation Learning =====
+
+  /**
+   * Extract conversation turns from the orchestrator agent and send to cloud
+   * backend for MemoryFact extraction.
+   *
+   * Only sends if:
+   * - User has an active session (auth tokens)
+   * - Agent has messages with at least one user turn
+   *
+   * Browser workflow traces are handled separately by TaskExecutor.learnFromTrace().
+   * This method only sends the conversation portion (type="conversation").
+   */
+  private async sendConversationTrace(): Promise<void> {
+    if (!this.agent) return;
+    if (!hasSession()) return;
+
+    const messages = this.agent.state.messages as any[];
+    if (!messages || messages.length === 0) return;
+
+    const conversationTrace = ExecutionDataCollector.buildConversationTrace(messages);
+    if (!conversationTrace || conversationTrace.turns.length === 0) return;
+
+    // Build the task description from the first user message
+    const firstUserTurn = conversationTrace.turns.find((t) => t.role === "user");
+    const task = firstUserTurn?.text.slice(0, 200) ?? "conversation";
+
+    logger.info(
+      { turnCount: conversationTrace.turns.length },
+      "Sending conversation trace for memory learning",
+    );
+
+    const traceData = {
+      type: "conversation",
+      task,
+      success: true,
+      steps: [],
+      source: "ami-desktop",
+      conversation: conversationTrace,
+    };
+
+    const result = (await getCloudClient().memoryLearn(
+      traceData as unknown as Record<string, unknown>,
+    )) as Record<string, unknown>;
+
+    logger.info(
+      {
+        factsCreated: result.facts_created,
+        conversationSummary: result.conversation_summary,
+      },
+      "Conversation trace learning result",
+    );
   }
 
   // ===== Cleanup =====

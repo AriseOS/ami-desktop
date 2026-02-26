@@ -91,9 +91,9 @@ export class AMITaskPlanner {
 
       logger.info(
         {
-          coverage: memoryPlan.coverage,
-          stepsCount: memoryPlan.steps.length,
-          preferencesCount: memoryPlan.preferences.length,
+          stepsCount: memoryPlan.steps?.length ?? 0,
+          preferencesCount: memoryPlan.preferences?.length ?? 0,
+          contextHintsCount: memoryPlan.context_hints?.length ?? 0,
           contextLen: memoryContext.length,
         },
         "L1 Planner memory context built",
@@ -428,8 +428,9 @@ export class AMITaskPlanner {
   static formatMemoryPlanForDecompose(memoryPlan: MemoryPlanData): string {
     const steps = memoryPlan.steps ?? [];
     const preferences = memoryPlan.preferences ?? [];
+    const contextHints = memoryPlan.context_hints ?? [];
 
-    if (steps.length === 0 && preferences.length === 0) {
+    if (steps.length === 0 && preferences.length === 0 && contextHints.length === 0) {
       return "";
     }
 
@@ -467,6 +468,14 @@ export class AMITaskPlanner {
       lines.push("**User Preferences** (apply to all steps):");
       for (const pref of preferences) {
         lines.push(`- ${pref}`);
+      }
+    }
+
+    if (contextHints.length > 0) {
+      lines.push("");
+      lines.push("**Context Hints** (facts from past conversations):");
+      for (const hint of contextHints) {
+        lines.push(`- ${hint}`);
       }
     }
 
