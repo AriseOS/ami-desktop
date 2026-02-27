@@ -895,28 +895,24 @@ export const api = {
   },
 
   /**
-   * Query user's workflow memory using natural language
+   * Query workflow memory using semantic search
    *
    * The system automatically analyzes the query and returns the most relevant
-   * operation paths with States, Actions, and IntentSequences.
+   * workflow data: States, Actions, CognitivePhrase, and execution plan.
    *
-   * @param {string} userId - User ID
    * @param {string} query - Natural language query describing the task
    * @param {object} options - Query options
-   * @param {number} options.topK - Number of paths to return (default: 3)
-   * @param {number} options.minScore - Minimum similarity score 0-1 (default: 0.5)
-   * @param {string} options.domain - Filter by domain (optional)
-   * @returns {Promise<object>} Response with paths array, each containing steps with state/action/intent_sequence
+   * @param {number} options.topK - Number of results to return (default: 5)
+   * @param {string} options.asType - Query type: 'task' | 'navigation' | 'action' (default: 'task')
+   * @returns {Promise<object>} Response with states[], actions[], cognitive_phrase, metadata
    */
-  async queryMemory(userId, query, { topK = 3, minScore = 0.5, domain = null } = {}) {
+  async queryMemory(query, { topK = 5, asType = 'task' } = {}) {
     return await this.callAppBackend('/api/v1/memory/query', {
       method: 'POST',
       body: JSON.stringify({
-        user_id: userId,
-        query: query,
+        target: query,
+        as_type: asType,
         top_k: topK,
-        min_score: minScore,
-        domain: domain
       })
     });
   },
@@ -924,21 +920,19 @@ export const api = {
   /**
    * Get user's workflow memory statistics
    *
-   * @param {string} userId - User ID
    * @returns {Promise<object>} Memory statistics (states, sequences, actions, domains)
    */
-  async getMemoryStats(userId) {
-    return await this.callAppBackend(`/api/v1/memory/stats?user_id=${userId}`);
+  async getMemoryStats() {
+    return await this.callAppBackend('/api/v1/memory/stats');
   },
 
   /**
    * Clear user's workflow memory
    *
-   * @param {string} userId - User ID
    * @returns {Promise<object>} Result with deleted counts
    */
-  async clearMemory(userId) {
-    return await this.callAppBackend(`/api/v1/memory?user_id=${userId}`, {
+  async clearMemory() {
+    return await this.callAppBackend('/api/v1/memory', {
       method: 'DELETE'
     });
   },

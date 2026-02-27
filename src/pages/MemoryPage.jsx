@@ -20,7 +20,7 @@ function MemoryPage({ session, showStatus, isLocalMode, onNavigateToLogin }) {
   // Query state
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
-  const [paths, setPaths] = useState([]);
+  const [queryResult, setQueryResult] = useState(null);
 
   // Clear memory state
   const [clearing, setClearing] = useState(false);
@@ -36,7 +36,7 @@ function MemoryPage({ session, showStatus, isLocalMode, onNavigateToLogin }) {
   const loadStats = async () => {
     setLoadingStats(true);
     try {
-      const data = await api.getMemoryStats(userId);
+      const data = await api.getMemoryStats();
       setStats(data.stats);
     } catch (error) {
       console.error('Failed to load memory stats:', error);
@@ -53,21 +53,20 @@ function MemoryPage({ session, showStatus, isLocalMode, onNavigateToLogin }) {
     }
 
     setSearching(true);
-    setPaths([]);
+    setQueryResult(null);
 
     try {
-      const data = await api.queryMemory(userId, query, {
-        topK: 5,
-        minScore: 0.3
-      });
+      const data = await api.queryMemory(query);
 
-      setPaths(data.paths || []);
+      setQueryResult(data);
 
-      if (data.paths?.length === 0) {
-        showStatus('No matching paths found', 'info');
+      const stateCount = data.states?.length || 0;
+      const level = data.metadata?.memory_level || 'L3';
+
+      if (stateCount === 0) {
+        showStatus('No matching memory found', 'info');
       } else {
-        const totalSteps = data.paths.reduce((sum, p) => sum + (p.steps?.length || 0), 0);
-        showStatus(`Found ${data.paths.length} path(s) with ${totalSteps} steps`, 'success');
+        showStatus(`Found ${stateCount} state(s), memory level: ${level}`, 'success');
       }
     } catch (error) {
       console.error('Memory query failed:', error);
@@ -82,12 +81,10 @@ function MemoryPage({ session, showStatus, isLocalMode, onNavigateToLogin }) {
     setClearing(true);
 
     try {
-      const result = await api.clearMemory(userId);
-      showStatus(`Memory cleared: ${result.deleted_states} states, ${result.deleted_actions} actions`, 'success');
-      // Reload stats
+      const result = await api.clearMemory();
+      showStatus(`Memory cleared: ${result.deleted_states} states, ${result.deleted_phrases} phrases`, 'success');
       await loadStats();
-      // Clear paths
-      setPaths([]);
+      setQueryResult(null);
     } catch (error) {
       console.error('Failed to clear memory:', error);
       showStatus(`Failed to clear: ${error.message}`, 'error');
@@ -102,80 +99,83 @@ function MemoryPage({ session, showStatus, isLocalMode, onNavigateToLogin }) {
     }
   };
 
-  const renderScore = (score) => {
-    const percentage = Math.round(score * 100);
-    const colorClass = score >= 0.8 ? 'high' : score >= 0.5 ? 'medium' : 'low';
+  const renderMemoryLevel = (level) => {
+    const labels = { L1: 'Full Match', L2: 'Partial Match', L3: 'No Match' };
+    const colorClass = level === 'L1' ? 'high' : level === 'L2' ? 'medium' : 'low';
     return (
       <span className={`score-badge ${colorClass}`}>
-        {percentage}%
+        {level} — {labels[level] || level}
       </span>
     );
   };
 
-  const renderStep = (step, stepIdx, isLast) => (
-    <div key={stepIdx} className="path-step">
-      {/* State */}
-      {step.state && (
-        <div className="step-state">
-          <div className="step-state-header">
-            <Icon icon="globe" />
-            <span className="state-title">{step.state.page_title || 'Untitled'}</span>
-            {step.state.domain && <span className="state-domain">{step.state.domain}</span>}
-          </div>
-          {step.state.page_url && (
-            <div className="state-url">{step.state.page_url}</div>
-          )}
-        </div>
-      )}
+  const renderQueryResult = () => {
+    if (!queryResult) return null;
 
-      {/* Intent Sequence */}
-      {step.intent_sequence && (
-        <div className="step-intents">
-          {step.intent_sequence.description && (
-            <div className="intent-description">{step.intent_sequence.description}</div>
-          )}
-          {step.intent_sequence.intents?.length > 0 && (
-            <div className="intent-list">
-              {step.intent_sequence.intents.slice(0, 5).map((intent, idx) => (
-                <span key={idx} className="intent-tag">
-                  <span className="intent-type">{intent.type}</span>
-                  {intent.text && <span className="intent-text">{intent.text.substring(0, 30)}</span>}
-                </span>
-              ))}
-              {step.intent_sequence.intents.length > 5 && (
-                <span className="intent-more">+{step.intent_sequence.intents.length - 5} more</span>
-              )}
+    const states = queryResult.states || [];
+    const actions = queryResult.actions || [];
+    const phrase = queryResult.cognitive_phrase;
+    const level = queryResult.metadata?.memory_level || 'L3';
+
+    return (
+      <div className="results-section">
+        <h3>
+          Query Result
+          {' '}{renderMemoryLevel(level)}
+        </h3>
+
+        {/* CognitivePhrase */}
+        {phrase && (
+          <div className="result-card path-card">
+            <div className="result-header">
+              <span className="result-type">Workflow: {phrase.label}</span>
             </div>
-          )}
-        </div>
-      )}
+            {phrase.description && (
+              <div className="path-description">{phrase.description}</div>
+            )}
+          </div>
+        )}
 
-      {/* Action arrow (if not last step) */}
-      {!isLast && step.action && (
-        <div className="step-action">
-          <Icon icon="arrow-right" />
-          <span className="action-description">{step.action.description || 'Navigate'}</span>
-        </div>
-      )}
-    </div>
-  );
+        {/* States as step cards */}
+        {states.length > 0 && (
+          <div className="results-list">
+            {states.map((state, idx) => {
+              const action = actions.find(a => a.source === state.id);
+              return (
+                <div key={idx} className="result-card path-card">
+                  <div className="path-step">
+                    <div className="step-state">
+                      <div className="step-state-header">
+                        <Icon icon="globe" />
+                        <span className="state-title">{state.page_title || 'Untitled'}</span>
+                        {state.domain && <span className="state-domain">{state.domain}</span>}
+                      </div>
+                      {state.page_url && (
+                        <div className="state-url">{state.page_url}</div>
+                      )}
+                      {state.description && (
+                        <div className="intent-description">{state.description}</div>
+                      )}
+                    </div>
+                    {action && (
+                      <div className="step-action">
+                        <Icon icon="arrow-right" />
+                        <span className="action-description">{action.description || action.type || 'Navigate'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-  const renderPath = (path, pathIdx) => (
-    <div key={pathIdx} className="result-card path-card">
-      <div className="result-header">
-        {renderScore(path.score)}
-        <span className="result-type">Path ({path.steps?.length || 0} steps)</span>
-      </div>
-      {path.description && (
-        <div className="path-description">{path.description}</div>
-      )}
-      <div className="path-steps">
-        {path.steps?.map((step, stepIdx) =>
-          renderStep(step, stepIdx, stepIdx === path.steps.length - 1)
+        {states.length === 0 && !phrase && (
+          <div className="stats-empty">No matching memory found</div>
         )}
       </div>
-    </div>
-  );
+    );
+  };
 
   // Local mode — show login prompt
   if (isLocalMode) {
@@ -302,14 +302,7 @@ function MemoryPage({ session, showStatus, isLocalMode, onNavigateToLogin }) {
           </div>
 
           {/* Results */}
-          {paths.length > 0 && (
-            <div className="results-section">
-              <h3>Operation Paths ({paths.length})</h3>
-              <div className="results-list">
-                {paths.map((path, idx) => renderPath(path, idx))}
-              </div>
-            </div>
-          )}
+          {renderQueryResult()}
         </div>
 
         {/* Clear Memory Section */}
