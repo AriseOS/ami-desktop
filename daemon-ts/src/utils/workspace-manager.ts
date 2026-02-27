@@ -5,7 +5,7 @@
  */
 
 import { mkdirSync, existsSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, relative, isAbsolute } from "node:path";
 import { AMI_DIR } from "./config.js";
 import { createLogger } from "./logging.js";
 
@@ -17,9 +17,11 @@ const WORKSPACE_BASE = join(AMI_DIR, "workspace");
 function safeTaskDir(taskId: string): string {
   // Strip any path separators and traversal attempts
   const sanitized = taskId.replace(/[/\\]/g, "_").replace(/\.\./g, "_");
-  const dir = resolve(WORKSPACE_BASE, sanitized);
-  // Double-check the resolved path is under WORKSPACE_BASE
-  if (!dir.startsWith(resolve(WORKSPACE_BASE) + "/") && dir !== resolve(WORKSPACE_BASE)) {
+  const base = resolve(WORKSPACE_BASE);
+  const dir = resolve(base, sanitized);
+  // Cross-platform containment check (works on Windows/macOS/Linux)
+  const rel = relative(base, dir);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
     throw new Error(`Invalid taskId: path traversal detected in "${taskId}"`);
   }
   return dir;

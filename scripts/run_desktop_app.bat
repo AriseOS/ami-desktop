@@ -54,9 +54,44 @@ IF NOT EXIST "%PROJECT_ROOT%\daemon-ts\node_modules" (
     popd
 )
 
+REM Ensure daemon-ts dist exists for Windows startup
+set "DAEMON_DIST_SERVER=%PROJECT_ROOT%\daemon-ts\dist\server.js"
+set "DAEMON_DIST_BROWSER_SCRIPTS=%PROJECT_ROOT%\daemon-ts\dist\browser\scripts"
+
+IF NOT EXIST "%DAEMON_DIST_SERVER%" (
+    echo Building daemon-ts dist for Windows startup...
+    pushd "%PROJECT_ROOT%\daemon-ts"
+    call npx tsc
+    IF ERRORLEVEL 1 (
+        echo ERROR: Failed to compile daemon-ts via TypeScript compiler.
+        popd
+        exit /b 1
+    )
+
+    if not exist "dist\browser\scripts" mkdir "dist\browser\scripts" >nul 2>&1
+    robocopy "src\browser\scripts" "dist\browser\scripts" /E >nul
+    IF !ERRORLEVEL! GEQ 8 (
+        echo ERROR: Failed to copy daemon browser scripts into dist.
+        popd
+        exit /b 1
+    )
+    popd
+) ELSE IF NOT EXIST "%DAEMON_DIST_BROWSER_SCRIPTS%" (
+    echo Copying daemon browser scripts into dist...
+    pushd "%PROJECT_ROOT%\daemon-ts"
+    if not exist "dist\browser\scripts" mkdir "dist\browser\scripts" >nul 2>&1
+    robocopy "src\browser\scripts" "dist\browser\scripts" /E >nul
+    IF !ERRORLEVEL! GEQ 8 (
+        echo ERROR: Failed to copy daemon browser scripts into dist.
+        popd
+        exit /b 1
+    )
+    popd
+)
+
 REM Start the app in development mode
 echo Starting Electron app (Development Mode)...
-echo    AMI_DEV_MODE=1 -^> Using TypeScript daemon (tsx)
+echo    AMI_DEV_MODE=1 -^> Windows uses compiled daemon dist first (tsx fallback)
 
 echo.
 

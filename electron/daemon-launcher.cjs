@@ -95,7 +95,7 @@ class DaemonLauncher {
   _getDaemonPath() {
     // Dev mode: use source files directly
     if (process.env.AMI_DEV_MODE) {
-      console.log('[DaemonLauncher] AMI_DEV_MODE set, using TypeScript daemon (tsx)');
+      console.log('[DaemonLauncher] AMI_DEV_MODE set, using development daemon path');
       return this._getTSDaemonDevPath();
     }
 
@@ -116,15 +116,30 @@ class DaemonLauncher {
     // Project root is one level up from electron/
     const projectRoot = path.resolve(__dirname, '..');
 
-    // Dev mode: prefer tsx (source) so code changes take effect without rebuild
+    // Candidate entries
     const srcEntry = path.join(projectRoot, 'daemon-ts', 'src', 'server.ts');
+    const distEntry = path.join(projectRoot, 'daemon-ts', 'dist', 'server.js');
+
+    // Windows: prefer compiled JS to avoid occasional tsx/esbuild spawn EPERM issues.
+    // If dist is missing, fall back to tsx.
+    if (process.platform === 'win32') {
+      if (fs.existsSync(distEntry)) {
+        console.log(`[DaemonLauncher] Windows dev mode: using compiled TS daemon: ${distEntry}`);
+        return { command: 'node', args: [distEntry] };
+      }
+      if (fs.existsSync(srcEntry)) {
+        console.log(`[DaemonLauncher] Windows fallback to tsx for TS daemon: ${srcEntry}`);
+        return { command: 'npx', args: ['tsx', srcEntry] };
+      }
+    }
+
+    // Unix: prefer tsx (source) so code changes take effect without rebuild
     if (fs.existsSync(srcEntry)) {
       console.log(`[DaemonLauncher] Using tsx for TS daemon: ${srcEntry}`);
       return { command: 'npx', args: ['tsx', srcEntry] };
     }
 
     // Fall back to compiled JS
-    const distEntry = path.join(projectRoot, 'daemon-ts', 'dist', 'server.js');
     if (fs.existsSync(distEntry)) {
       console.log(`[DaemonLauncher] Using compiled TS daemon: ${distEntry}`);
       return { command: 'node', args: [distEntry] };
