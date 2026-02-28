@@ -481,6 +481,12 @@ export class ExecutionDataCollector {
           }
         }
 
+        // Include rich execution fields from ToolUseRecord
+        if (record.thinking) step.thinking = record.thinking;
+        if (!record.success) step.success = false;
+        if (record.resultSummary) step.result_summary = record.resultSummary;
+        if (record.judgment) step.judgment = record.judgment;
+
         steps.push(step);
         lastUrl = step.url || url;
       }
@@ -510,6 +516,11 @@ export interface TraceStep {
   action: string;
   target?: string;
   value?: string;
+  // Rich execution fields (optional, for LearnerAgent task outcome judgment)
+  thinking?: string;
+  success?: boolean;
+  result_summary?: string;
+  judgment?: string;
 }
 
 export interface ConversationTurn {
